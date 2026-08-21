@@ -32,3 +32,6 @@ htmlcov/
 output/
 extraction.json
 *.md.out
+
+# local tooling binaries
+actionlint
