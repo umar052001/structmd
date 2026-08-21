@@ -1,0 +1,165 @@
+{
+  "document_id": "sample-doc-001",
+  "source_path": "samples/quarterly_report.pdf",
+  "page_count": 3,
+  "pages": [
+    {
+      "page_number": 1,
+      "width": 612.0,
+      "height": 792.0,
+      "elements": [
+        {
+          "id": "p1-title",
+          "type": "heading",
+          "bbox": {"x1": 72, "y1": 60, "x2": 540, "y2": 92},
+          "text": "Quarterly Business Report",
+          "page_number": 1,
+          "confidence": 0.99,
+          "heading_level": 1
+        },
+        {
+          "id": "p1-intro",
+          "type": "paragraph",
+          "bbox": {"x1": 72, "y1": 110, "x2": 540, "y2": 180},
+          "text": "Revenue grew 14% quarter over quarter, driven primarily by enterprise subscriptions and a successful expansion into the APAC region.",
+          "page_number": 1,
+          "confidence": 0.97
+        },
+        {
+          "id": "p1-h2",
+          "type": "heading",
+          "bbox": {"x1": 72, "y1": 200, "x2": 300, "y2": 224},
+          "text": "Financial Highlights",
+          "page_number": 1,
+          "confidence": 0.98,
+          "heading_level": 2
+        },
+        {
+          "id": "p1-table",
+          "type": "table",
+          "bbox": {"x1": 72, "y1": 240, "x2": 540, "y2": 380},
+          "text": "Metric | Q1 | Q2\nRevenue | $4.2M | $4.8M",
+          "page_number": 1,
+          "confidence": 0.93,
+          "table_data": [
+            ["Metric", "Q1", "Q2"],
+            ["Revenue", "$4.2M", "$4.8M"],
+            ["Gross Margin", "61%", "63%"]
+          ]
+        },
+        {
+          "id": "p1-caption",
+          "type": "caption",
+          "bbox": {"x1": 72, "y1": 385, "x2": 540, "y2": 400},
+          "text": "Table 1: Consolidated financials",
+          "page_number": 1,
+          "confidence": 0.9
+        }
+      ]
+    },
+    {
+      "page_number": 2,
+      "width": 612.0,
+      "height": 792.0,
+      "elements": [
+        {
+          "id": "p2-pagenum",
+          "type": "page_number",
+          "bbox": {"x1": 290, "y1": 760, "x2": 322, "y2": 775},
+          "text": "2",
+          "page_number": 2,
+          "confidence": 0.99
+        },
+        {
+          "id": "p2-header",
+          "type": "header",
+          "bbox": {"x1": 72, "y1": 30, "x2": 540, "y2": 48},
+          "text": "Quarterly Business Report — Confidential",
+          "page_number": 2,
+          "confidence": 0.95
+        },
+        {
+          "id": "p2-list-1",
+          "type": "list_item",
+          "bbox": {"x1": 90, "y1": 80, "x2": 540, "y2": 100},
+          "text": "Launched the self-serve onboarding flow",
+          "page_number": 2,
+          "confidence": 0.96,
+          "list_type": "unordered",
+          "indent_level": 0
+        },
+        {
+          "id": "p2-list-2",
+          "type": "list_item",
+          "bbox": {"x1": 90, "y1": 104, "x2": 540, "y2": 124},
+          "text": "Reduced median support response time to 42 minutes",
+          "page_number": 2,
+          "confidence": 0.96,
+          "list_type": "unordered",
+          "indent_level": 0
+        },
+        {
+          "id": "p2-quote",
+          "type": "blockquote",
+          "bbox": {"x1": 100, "y1": 150, "x2": 520, "y2": 200},
+          "text": "The migration to the new platform exceeded every internal benchmark.",
+          "page_number": 2,
+          "confidence": 0.94
+        },
+        {
+          "id": "p2-code",
+          "type": "code_block",
+          "bbox": {"x1": 72, "y1": 230, "x2": 540, "y2": 320},
+          "text": "SELECT region, SUM(revenue) FROM sales GROUP BY region;",
+          "page_number": 2,
+          "confidence": 0.97,
+          "metadata": {"language": "sql"}
+        },
+        {
+          "id": "p2-cont",
+          "type": "paragraph",
+          "bbox": {"x1": 72, "y1": 350, "x2": 540, "y2": 420},
+          "text": "Looking ahead, management expects continued momentum in the second half as new capacity comes online in Singapore and",
+          "page_number": 2,
+          "confidence": 0.95,
+          "continues_on_next_page": true
+        }
+      ]
+    },
+    {
+      "page_number": 3,
+      "width": 612.0,
+      "height": 792.0,
+      "elements": [
+        {
+          "id": "p3-contd",
+          "type": "paragraph",
+          "bbox": {"x1": 72, "y1": 60, "x2": 540, "y2": 120},
+          "text": "Tokyo come online ahead of schedule.",
+          "page_number": 3,
+          "confidence": 0.95
+        },
+        {
+          "id": "p3-img",
+          "type": "image",
+          "bbox": {"x1": 150, "y1": 150, "x2": 460, "y2": 380},
+          "text": "Org chart showing the new APAC reporting structure",
+          "page_number": 3,
+          "confidence": 0.88
+        },
+        {
+          "id": "p3-imgcap",
+          "type": "caption",
+          "bbox": {"x1": 150, "y1": 385, "x2": 460, "y2": 402},
+          "text": "Figure 1: Updated organizational structure effective July 1",
+          "page_number": 3,
+          "confidence": 0.91
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "extractor": "ollama",
+    "model": "qwen2-vl:2b"
+  }
+}

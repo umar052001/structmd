@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentation — structmd</title>
+  <meta name="description" content="Full documentation for structmd: installation, Ollama setup (local and cloud), Python API, CLI reference, configuration, caching and batch processing.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><linearGradient id="i" x1="0" y1="0" x2="32" y2="32"><stop offset="0" stop-color="%236d5cff"/><stop offset=".55" stop-color="%2300b3e6"/><stop offset="1" stop-color="%23ff4f9a"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(%23i)"/><path d="M9 11h14M9 16h14M9 21h8" stroke="white" stroke-width="2.6" stroke-linecap="round"/></svg>'>
+</head>
+<body>
+
+  <!-- ============================== NAV ============================== -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="index.html">
+        <svg class="mark" width="27" height="27" viewBox="0 0 32 32" aria-hidden="true">
+          <defs>
+            <linearGradient id="lg-nav" x1="0" y1="0" x2="32" y2="32">
+              <stop offset="0" stop-color="#6d5cff"/>
+              <stop offset="0.55" stop-color="#00b3e6"/>
+              <stop offset="1" stop-color="#ff4f9a"/>
+            </linearGradient>
+          </defs>
+          <rect width="32" height="32" rx="8" fill="url(#lg-nav)"/>
+          <path d="M9 11h14M9 16h14M9 21h8" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+        </svg>
+        structmd
+      </a>
+      <button class="menu-btn" aria-label="Toggle navigation">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div class="nav-links">
+        <a href="index.html#architecture">Architecture</a>
+        <a href="index.html#features">Features</a>
+        <a href="index.html#quickstart">Quick start</a>
+        <a href="docs.html" class="active">Docs</a>
+        <a href="https://github.com/umar052001/structmd" target="_blank" rel="noopener">GitHub</a>
+        <a class="nav-cta" href="https://pypi.org/project/structmd/" target="_blank" rel="noopener">PyPI</a>
+        <button class="theme-toggle" aria-label="Toggle dark mode">
+          <svg class="moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          <svg class="sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="wrap docs-layout">
+
+    <!-- ============================ SIDEBAR ============================ -->
+    <aside class="sidebar" aria-label="Documentation sections">
+      <div class="side-group">
+        <div class="side-title">Getting started</div>
+        <a class="side-link" href="#installation">Installation</a>
+        <a class="side-link" href="#ollama-setup">Ollama setup</a>
+        <a class="side-link" href="#first-conversion">First conversion</a>
+      </div>
+      <div class="side-group">
+        <div class="side-title">Guides</div>
+        <a class="side-link" href="#python-api">Python API</a>
+        <a class="side-link" href="#cli-reference">CLI reference</a>
+        <a class="side-link" href="#configuration">Configuration</a>
+        <a class="side-link" href="#caching">Caching</a>
+        <a class="side-link" href="#batch">Batch processing</a>
+      </div>
+      <div class="side-group">
+        <div class="side-title">Concepts</div>
+        <a class="side-link" href="#two-stage">The two-stage workflow</a>
+        <a class="side-link" href="#json-artifact">Extraction JSON format</a>
+        <a class="side-link" href="#troubleshooting">Troubleshooting</a>
+      </div>
+    </aside>
+
+    <!-- ============================ CONTENT ============================ -->
+    <article class="doc-content">
+
+      <h2 id="installation">Installation</h2>
+      <p>structmd requires <strong>Python 3.9+</strong> and a reachable <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a> server (local daemon or Ollama Cloud).</p>
+
+      <h3>Core package</h3>
+      <div class="codebox"><pre><span class="c-prompt">$</span> pip install structmd</pre></div>
+
+      <h3>Format extras</h3>
+      <p>Pick the extra matching your input formats:</p>
+      <div class="codebox"><pre><span class="c-prompt">$</span> pip install <span class="s">"structmd[pdf]"</span>     <span class="c"># PDF support via PyMuPDF</span>
+<span class="c-prompt">$</span> pip install <span class="s">"structmd[office]"</span>  <span class="c"># Office documents via LibreOffice bridge</span>
+<span class="c-prompt">$</span> pip install <span class="s">"structmd[all]"</span>     <span class="c"># everything at once</span></pre></div>
+      <p>Images (<code class="inline-code">.png</code>, <code class="inline-code">.jpg</code>, <code class="inline-code">.webp</code>, <code class="inline-code">.tiff</code>, <code class="inline-code">.bmp</code>) work with the core install.</p>
+
+      <h3>From source (development)</h3>
+      <div class="codebox"><pre><span class="c-prompt">$</span> git clone https://github.com/umar052001/structmd.git
+<span class="c-prompt">$</span> cd structmd
+<span class="c-prompt">$</span> uv sync --extra all --extra dev
+<span class="c-prompt">$</span> uv run pytest</pre></div>
+
+      <h2 id="ollama-setup">Ollama setup</h2>
+
+      <h3>Local models (fully private)</h3>
+      <p>Install the Ollama daemon, then pull any vision-capable model:</p>
+      <div class="codebox"><pre><span class="c-prompt">$</span> ollama pull qwen2.5-vl:7b    <span class="c"># strong general-purpose VLM</span>
+<span class="c-prompt">$</span> ollama pull smolvlm          <span class="c"># small &amp; fast on CPUs</span></pre></div>
+      <p>structmd talks to <code class="inline-code">http://localhost:11434</code> by default. If your model tag is missing the
+         <code class="inline-code">:latest</code> suffix, structmd appends it automatically after checking <code class="inline-code">/api/tags</code>.</p>
+
+      <h3>Ollama Cloud models</h3>
+      <p>Cloud models run through the exact same local API — the daemon proxies requests to ollama.com,
+         so no code changes are needed:</p>
+      <div class="codebox"><pre><span class="c-prompt">$</span> ollama signin                <span class="c"># one-time account link</span>
+<span class="c-prompt">$</span> ollama pull gemma4:cloud     <span class="c"># registers the remote model locally</span>
+<span class="c-prompt">$</span> structmd paper.pdf -o paper.md --model gemma4:cloud</pre></div>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+        <p><span class="callout-title">Privacy note</span>
+        Local models never send your documents anywhere. Cloud models route page images through Ollama's
+        infrastructure — choose based on your data sensitivity. Remote inference is also slower per request;
+        raise <code class="inline-code">STRUCTMD_OLLAMA_TIMEOUT</code> if you hit timeouts on large pages.</p>
+      </div>
+
+      <h2 id="first-conversion">First conversion</h2>
+      <div class="codebox"><pre><span class="c-prompt">$</span> structmd report.pdf -o report.md
+
+<span class="c-dim">Extracting</span> <span class="c-hl">12 pages</span> <span class="c-dim">━━━━━━━━━━━━</span> <span class="c-ok">100%</span>
+<span class="c-dim">Building Markdown …</span> <span class="c-ok">done</span>
+<span class="c-ok">✓</span> wrote <span class="c-hl">report.md</span> <span class="c-dim">(38.2 KB)</span></pre></div>
+      <p>The extraction JSON is written next to the output as <code class="inline-code">report.extraction.json</code>.
+         Keep it — it is your editable source of truth (see <a href="#two-stage">the two-stage workflow</a>).</p>
+
+      <h2 id="python-api">Python API</h2>
+
+      <h3>StructMDPipeline</h3>
+      <p>The orchestrator facade. It wires converter → extractor → builder and manages the cache lifecycle.</p>
+      <div class="codebox"><pre id="api-basic"><span class="k">from</span> <span class="p">structmd</span> <span class="k">import</span> <span class="p">StructMDPipeline</span>
+
+<span class="k">with</span> <span class="f">StructMDPipeline</span>(
+    model=<span class="s">"qwen2.5-vl:7b"</span>,            <span class="c"># any Ollama vision tag</span>
+    base_url=<span class="s">"http://localhost:11434"</span>, <span class="c"># default</span>
+) <span class="k">as</span> <span class="p">pipeline:</span>
+    doc = pipeline.<span class="f">process</span>(<span class="s">"report.pdf"</span>, output_path=<span class="s">"report.md"</span>)
+    <span class="f">print</span>(doc.markdown)</pre>
+      <button class="copy-btn" aria-label="Copy code"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+
+      <h3>Stage separation</h3>
+      <div class="codebox"><pre><span class="c"># Stage 1 only — extraction to JSON, no Markdown built</span>
+<span class="p">extracted = pipeline.</span><span class="f">extract_only</span>(<span class="s">"report.pdf"</span>, pages=<span class="s">"1,3,5-10"</span>)
+extracted.<span class="f">save_json</span>(<span class="s">"report.extraction.json"</span>)
+
+<span class="c"># Stage 2 only — rebuild Markdown from any extraction JSON</span>
+<span class="p">md = pipeline.</span><span class="f">build_from_json</span>(<span class="s">"report.extraction.json"</span>, output_path=<span class="s">"report.md"</span>)</pre></div>
+
+      <h3>Batch from Python</h3>
+      <div class="codebox"><pre><span class="p">results = pipeline.</span><span class="f">process_batch</span>(
+    paths=[<span class="s">"a.pdf"</span>, <span class="s">"b.docx"</span>, <span class="s">"scan.png"</span>],
+    output_dir=<span class="s">"./markdown/"</span>,
+    workers=<span class="n">4</span>,                       <span class="c"># concurrent conversions</span>
+)
+<span class="k">for</span> <span class="p">r</span> <span class="k">in</span> <span class="p">results:</span>
+    <span class="f">print</span>(r.input_path, <span class="s">"->"</span>, r.output_path <span class="k">or</span> r.error)</pre></div>
+      <p>Inside a running event loop use <code class="inline-code">await pipeline.process_batch_async(...)</code> instead —
+         it shares the same worker pool without spawning threads over your loop.</p>
+
+      <h2 id="cli-reference">CLI reference</h2>
+      <div class="tablewrap">
+        <table class="tbl">
+          <thead><tr><th>Flag</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code class="inline-code">-o, --output PATH</code></td><td>Output Markdown path (single mode) or directory (batch mode).</td></tr>
+            <tr><td><code class="inline-code">--model NAME</code></td><td>Ollama vision model tag. Overrides config/env.</td></tr>
+            <tr><td><code class="inline-code">--base-url URL</code></td><td>Ollama API endpoint (default <code class="inline-code">http://localhost:11434</code>).</td></tr>
+            <tr><td><code class="inline-code">--pages SPEC</code></td><td>Page selection, e.g. <code class="inline-code">1,3,5-10</code>. Works in single and batch mode.</td></tr>
+            <tr><td><code class="inline-code">--extract-only</code></td><td>Stop after stage 1; write the extraction JSON only.</td></tr>
+            <tr><td><code class="inline-code">--from-json</code></td><td>Skip stage 1 entirely; rebuild Markdown from an existing JSON artifact.</td></tr>
+            <tr><td><code class="inline-code">--force</code></td><td>Ignore cached results and re-run extraction.</td></tr>
+            <tr><td><code class="inline-code">--no-cache</code></td><td>Disable the cache for this run.</td></tr>
+            <tr><td><code class="inline-code">--workers N</code></td><td>Batch concurrency (default 4).</td></tr>
+            <tr><td><code class="inline-code">--config PATH</code></td><td>Explicit config file instead of the layered lookup.</td></tr>
+            <tr><td><code class="inline-code">-v, --verbose</code></td><td>Debug logging to stderr.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Invocation patterns</h3>
+      <div class="codebox"><pre><span class="c-prompt">$</span> structmd scan.png -o scan.md                     <span class="c"># image</span>
+<span class="c-prompt">$</span> structmd deck.pptx -o deck.md                    <span class="c"># office (needs LibreOffice)</span>
+<span class="c-prompt">$</span> structmd book.pdf -o book.md --pages <span class="n">1,3,5-10</span>   <span class="c"># page range</span>
+<span class="c-prompt">$</span> structmd report.pdf --extract-only               <span class="c"># JSON artifact only</span>
+<span class="c-prompt">$</span> structmd report.pdf --from-json                  <span class="c"># deterministic rebuild</span>
+<span class="c-prompt">$</span> structmd batch ./papers/ -o ./md/ --workers <span class="n">6</span>   <span class="c"># whole directory</span></pre></div>
+
+      <h2 id="configuration">Configuration</h2>
+      <p>Settings resolve in layers — later sources win:</p>
+      <ol>
+        <li>Built-in defaults</li>
+        <li><code class="inline-code">~/.config/structmd/config.yaml</code> (global)</li>
+        <li><code class="inline-code">./.structmd.yaml</code> (per project)</li>
+        <li><code class="inline-code">STRUCTMD_*</code> environment variables</li>
+        <li>CLI flags</li>
+      </ol>
+
+      <h3>Example <code>.structmd.yaml</code></h3>
+      <div class="codebox"><pre><span class="k">ollama</span><span class="p">:</span>
+  <span class="k">model</span><span class="p">:</span> <span class="s">gemma4:cloud</span>
+  <span class="k">base_url</span><span class="p">:</span> <span class="s">http://localhost:11434</span>
+  <span class="k">timeout</span><span class="p">:</span> <span class="n">120</span>
+
+<span class="k">processing</span><span class="p">:</span>
+  <span class="k">dpi</span><span class="p">:</span> <span class="n">150</span>
+  <span class="k">max_retries</span><span class="p">:</span> <span class="n">3</span>
+
+<span class="k">output</span><span class="p">:</span>
+  <span class="k">page_breaks</span><span class="p">:</span> <span class="n">true</span>
+  <span class="k">image_alt_text</span><span class="p">:</span> <span class="n">true</span>
+
+<span class="k">cache</span><span class="p">:</span>
+  <span class="k">enabled</span><span class="p">:</span> <span class="n">true</span>
+  <span class="k">dir</span><span class="p">:</span> <span class="s">~/.cache/structmd</span></pre></div>
+
+      <h3>Environment variables</h3>
+      <div class="tablewrap">
+        <table class="tbl">
+          <thead><tr><th>Variable</th><th>Maps to</th></tr></thead>
+          <tbody>
+            <tr><td><code class="inline-code">STRUCTMD_OLLAMA_MODEL</code></td><td>Default vision model tag</td></tr>
+            <tr><td><code class="inline-code">STRUCTMD_OLLAMA_BASE_URL</code></td><td>Ollama endpoint</td></tr>
+            <tr><td><code class="inline-code">STRUCTMD_OLLAMA_TIMEOUT</code></td><td>Per-request timeout in seconds</td></tr>
+            <tr><td><code class="inline-code">STRUCTMD_CACHE_ENABLED</code></td><td><code class="inline-code">true</code> / <code class="inline-code">false</code></td></tr>
+            <tr><td><code class="inline-code">STRUCTMD_CACHE_DIR</code></td><td>Cache directory override</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="caching">Caching</h2>
+      <p>Every conversion result is stored under <code class="inline-code">~/.cache/structmd</code>, keyed by a SHA-256 hash of the
+         input file's <em>content, size and mtime</em> — edit the PDF and the cache invalidates itself automatically.</p>
+      <ul>
+        <li><strong>Document level:</strong> final extraction JSON per file (<code class="inline-code">{key[:2]}/{key}.json</code>).</li>
+        <li><strong>Page level:</strong> individual page extractions survive when other pages change.</li>
+        <li><strong>Atomic writes:</strong> results land via <code class="inline-code">os.replace</code>, so crashes never corrupt entries.</li>
+      </ul>
+      <div class="codebox"><pre><span class="c-prompt">$</span> structmd big.pdf -o big.md            <span class="c"># slow first run</span>
+<span class="c-prompt">$</span> structmd big.pdf -o big.md            <span class="c"># instant — served from cache</span>
+<span class="c-prompt">$</span> structmd big.pdf -o big.md --force    <span class="c"># bypass and refresh the cache</span></pre></div>
+
+      <h2 id="batch">Batch processing</h2>
+      <p>Point the CLI at a directory (or pass many files) and structmd walks the tree for supported formats:</p>
+      <div class="codebox"><pre><span class="c-prompt">$</span> structmd batch ./contracts/ -o ./markdown/ --workers <span class="n">4</span> --pages <span class="n">1</span></pre></div>
+      <ul>
+        <li>An async worker pool drives conversions concurrently; progress renders as a live bar.</li>
+        <li>A failure on one file is logged and isolated — the batch continues.</li>
+        <li>Outputs are written as <code class="inline-code">&lt;stem&gt;.md</code> into the output directory.</li>
+        <li>Cached files complete instantly, making re-runs cheap and resumable.</li>
+      </ul>
+
+      <h2 id="two-stage">The two-stage workflow</h2>
+      <p>structmd deliberately forbids the VLM from writing Markdown directly. Instead:</p>
+      <ol>
+        <li><strong>Stage 1 (model):</strong> each rendered page image is described as typed, positioned JSON elements.</li>
+        <li><strong>Artifact:</strong> the JSON is saved and cached — inspectable, diffable, hand-editable.</li>
+        <li><strong>Stage 2 (rules):</strong> a deterministic builder resolves columns, merges cross-page paragraphs,
+            normalizes headings and emits Markdown. Identical JSON always yields identical bytes.</li>
+      </ol>
+      <p>This gives you reproducibility for CI, a debugging surface when a model misreads a page, and the freedom
+         to swap models without touching your output logic.</p>
+
+      <h2 id="json-artifact">Extraction JSON format</h2>
+      <div class="codebox"><pre>{
+  <span class="f">"schema_version"</span>: <span class="n">1</span>,
+  <span class="f">"source"</span>: { <span class="f">"path"</span>: <span class="s">"report.pdf"</span>, <span class="f">"pages"</span>: <span class="n">12</span> },
+  <span class="f">"pages"</span>: [
+    {
+      <span class="f">"page_number"</span>: <span class="n">1</span>,
+      <span class="f">"elements"</span>: [
+        {
+          <span class="f">"type"</span>: <span class="s">"heading"</span>,          <span class="c">// heading|paragraph|list_item|table|</span>
+          <span class="c">//                            image|code_block|blockquote|horizontal_rule</span>
+          <span class="f">"content"</span>: <span class="s">"Introduction"</span>,
+          <span class="f">"level"</span>: <span class="n">1</span>,                 <span class="c">// heading depth</span>
+          <span class="f">"bbox"</span>: [<span class="n">72.0</span>, <span class="n">95.4</span>, <span class="n">540.1</span>, <span class="n">118.2</span>],
+          <span class="f">"confidence"</span>: <span class="n">0.97</span>
+        }
+      ]
+    }
+  ]
+}</pre></div>
+      <p>Edit anything — fix a typo, promote a paragraph to a heading, reorder list items — then rebuild with
+         <code class="inline-code">--from-json</code>. The builder trusts the JSON completely.</p>
+
+      <h2 id="troubleshooting">Troubleshooting</h2>
+      <div class="tablewrap">
+        <table class="tbl">
+          <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
+          <tbody>
+            <tr><td><code class="inline-code">ModelNotFoundError</code></td><td>Run <code class="inline-code">ollama pull &lt;tag&gt;</code>; for cloud models append <code class="inline-code">:cloud</code>.</td></tr>
+            <tr><td><code class="inline-code">OllamaConnectionError</code></td><td>Is the daemon up? Try <code class="inline-code">ollama list</code>; check <code class="inline-code">--base-url</code>.</td></tr>
+            <tr><td>Timeouts per page</td><td>Raise <code class="inline-code">STRUCTMD_OLLAMA_TIMEOUT</code>; large pages on CPU-bound models need more time.</td></tr>
+            <tr><td>Office conversion fails</td><td>Install LibreOffice (<code class="inline-code">soffice</code> must be on <code class="inline-code">PATH</code>).</td></tr>
+            <tr><td>Wrong reading order</td><td>Inspect the JSON bbox values; adjust then rebuild with <code class="inline-code">--from-json</code>.</td></tr>
+            <tr><td>Stale output after editing a file</td><td>Cache keys include content hash — if you truly need a re-run, use <code class="inline-code">--force</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout" style="margin-top:44px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m0 12-4-4m4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <p><span class="callout-title">Want to improve structmd?</span>
+        Read the <a href="https://github.com/umar052001/structmd/blob/main/CONTRIBUTING.md">contributing guide</a> —
+        the dev environment boots with one command and the entire test suite runs offline.</p>
+      </div>
+
+    </article>
+  </main>
+
+  <!-- ============================== FOOTER ============================== -->
+  <footer class="site">
+    <div class="wrap">
+      <div class="foot-grid">
+        <div style="max-width:340px;">
+          <a class="brand" href="index.html" style="margin-bottom:14px;">
+            <svg class="mark" width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
+              <defs><linearGradient id="lg-foot" x1="0" y1="0" x2="32" y2="32">
+                <stop offset="0" stop-color="#6d5cff"/><stop offset="0.55" stop-color="#00b3e6"/><stop offset="1" stop-color="#ff4f9a"/>
+              </linearGradient></defs>
+              <rect width="32" height="32" rx="8" fill="url(#lg-foot)"/>
+              <path d="M9 11h14M9 16h14M9 21h8" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+            </svg>
+            structmd
+          </a>
+          <p style="color:var(--muted); font-size:14px;">Documents in, structured Markdown out.
+             Local vision models, deterministic builds, zero lock-in.</p>
+        </div>
+        <div class="foot-col">
+          <h4>Documentation</h4>
+          <a href="docs.html#installation">Installation</a>
+          <a href="docs.html#python-api">Python API</a>
+          <a href="docs.html#cli-reference">CLI reference</a>
+          <a href="docs.html#configuration">Configuration</a>
+        </div>
+        <div class="foot-col">
+          <h4>Project</h4>
+          <a href="https://github.com/umar052001/structmd" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/umar052001/structmd/issues" target="_blank" rel="noopener">Issues</a>
+          <a href="https://github.com/umar052001/structmd/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+          <a href="https://github.com/umar052001/structmd/releases" target="_blank" rel="noopener">Releases</a>
+        </div>
+        <div class="foot-col">
+          <h4>Ecosystem</h4>
+          <a href="https://pypi.org/project/structmd/" target="_blank" rel="noopener">PyPI package</a>
+          <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>
+          <a href="https://ollama.com/cloud" target="_blank" rel="noopener">Ollama Cloud</a>
+        </div>
+      </div>
+      <div class="foot-note">
+        <span>MIT License · © 2026 structmd contributors</span>
+        <span>Built with plain HTML &amp; CSS — no frameworks.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/script.js"></script>
+</body>
+</html>

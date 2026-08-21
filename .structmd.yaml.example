@@ -1,0 +1,25 @@
+# structmd configuration example.
+# Copy to ./.structmd.yaml (project-local) or
+# ~/.config/structmd/config.yaml (global).
+# Every value can also be set via STRUCTMD_* environment variables,
+# which take precedence over both files.
+
+ollama:
+  url: "http://localhost:11434"
+  model: "qwen2-vl:2b"
+  timeout: 120
+  max_workers: 4
+
+processing:
+  dpi: 150
+  detect_columns: true
+  merge_continued_paragraphs: true
+  normalize_headings: true
+
+output:
+  include_page_numbers: true
+  page_number_format: "\n<!-- Page {page} -->\n"
+  table_caption_position: "before"
+
+cache:
+  dir: "~/.cache/structmd"

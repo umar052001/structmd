@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>structmd — Documents in. Structured Markdown out.</title>
+  <meta name="description" content="structmd converts PDFs, Office documents and images into clean, structured Markdown using local vision language models served by Ollama. Two-stage architecture: inspectable JSON extraction, deterministic Markdown building.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="icon" type="image/svg+xml" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><linearGradient id="i" x1="0" y1="0" x2="32" y2="32"><stop offset="0" stop-color="%236d5cff"/><stop offset=".55" stop-color="%2300b3e6"/><stop offset="1" stop-color="%23ff4f9a"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(%23i)"/><path d="M9 11h14M9 16h14M9 21h8" stroke="white" stroke-width="2.6" stroke-linecap="round"/></svg>'>
+</head>
+<body>
+
+  <!-- ============================== NAV ============================== -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="index.html">
+        <svg class="mark" width="27" height="27" viewBox="0 0 32 32" aria-hidden="true">
+          <defs>
+            <linearGradient id="lg-nav" x1="0" y1="0" x2="32" y2="32">
+              <stop offset="0" stop-color="#6d5cff"/>
+              <stop offset="0.55" stop-color="#00b3e6"/>
+              <stop offset="1" stop-color="#ff4f9a"/>
+            </linearGradient>
+          </defs>
+          <rect width="32" height="32" rx="8" fill="url(#lg-nav)"/>
+          <path d="M9 11h14M9 16h14M9 21h8" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+        </svg>
+        structmd
+      </a>
+      <button class="menu-btn" aria-label="Toggle navigation">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div class="nav-links">
+        <a href="#architecture">Architecture</a>
+        <a href="#features">Features</a>
+        <a href="#quickstart">Quick start</a>
+        <a href="docs.html">Docs</a>
+        <a href="https://github.com/umar052001/structmd" target="_blank" rel="noopener">GitHub</a>
+        <a class="nav-cta" href="https://pypi.org/project/structmd/" target="_blank" rel="noopener">PyPI</a>
+        <button class="theme-toggle" aria-label="Toggle dark mode">
+          <svg class="moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          <svg class="sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ============================== HERO ============================== -->
+  <header class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="kicker"><span class="dot"></span> Open source · MIT licensed</span>
+        <h1>Documents in.<br><span class="grad-text">Structured Markdown</span> out.</h1>
+        <p class="lede">
+          structmd converts PDFs, Office files and images into clean, hierarchical Markdown using
+          vision language models you control — served locally by <strong>Ollama</strong>, or from your
+          Ollama cloud account. No data leaves your machine unless you say so.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="docs.html">Get started
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+          </a>
+          <span class="install-snippet">
+            <span class="prompt">$</span> pip install structmd
+            <button class="copy-btn" data-copy-text="pip install structmd" aria-label="Copy install command">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </span>
+        </div>
+        <div class="meta-badges">
+          <span class="badge-chip">Python 3.9 – 3.13</span>
+          <span class="badge-chip">100% offline test suite</span>
+          <span class="badge-chip">Deterministic rebuilds</span>
+          <span class="badge-chip">Local or cloud VLMs</span>
+        </div>
+      </div>
+
+      <div class="window" role="img" aria-label="Terminal session showing structmd converting a PDF to Markdown">
+        <div class="window-bar"><i></i><i></i><i></i><span>terminal — structmd</span></div>
+        <div class="window-body"><span class="c-prompt">$</span> pip install <span class="c-hl">structmd</span>
+<span class="c-prompt">$</span> ollama pull <span class="c-hl">qwen3.5-vl</span>
+<span class="c-prompt">$</span> structmd report.pdf -o report.md
+
+<span class="c-dim">Extracting</span> <span class="c-hl">12 pages</span> <span class="c-dim">━━━━━━━━━━━━</span> <span class="c-ok">100%</span>
+<span class="c-dim">Building Markdown …</span> <span class="c-ok">done</span>
+
+<span class="c-ok">✓</span> wrote <span class="c-hl">report.md</span> <span class="c-dim">(38.2 KB)</span>
+<span class="c-dim">extraction JSON saved → report.extraction.json</span>
+
+<span class="c-prompt">$</span> structmd report.pdf --from-json
+<span class="c-dim"># rebuilds byte-identical Markdown — no VLM needed</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================== ARCHITECTURE ========================== -->
+  <section class="block" id="architecture">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="sec-tag">How it works</span>
+        <h2>A strict two-stage pipeline</h2>
+        <p>The VLM never writes your Markdown. It only describes the page as JSON — structmd's deterministic
+           builder turns that JSON into Markdown, so results are reproducible, auditable and editable.</p>
+      </div>
+
+      <div class="pipeline">
+        <div class="stage-card vlm-card">
+          <span class="stage-no">STAGE 1 · EXTRACT</span>
+          <h3>Vision model reads the page</h3>
+          <p>Each page is rendered to an image and sent to any Ollama vision model, which returns a typed,
+             position-aware description of every element.</p>
+          <div class="chip-row">
+            <span class="chip">PyMuPDF render</span>
+            <span class="chip">any VLM</span>
+            <span class="chip">retry + backoff</span>
+          </div>
+        </div>
+
+        <div class="flow-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16m-6-6 6 6-6 6"/></svg>
+        </div>
+
+        <div class="stage-card json-card">
+          <span class="stage-no">ARTIFACT · JSON</span>
+          <h3>Inspectable extraction file</h3>
+          <p>Elements land in a versioned JSON document — headings, paragraphs, tables, lists, images,
+             bounding boxes, reading order. Cache it, diff it, fix it by hand.</p>
+          <div class="chip-row">
+            <span class="chip">content-hash cache</span>
+            <span class="chip">human-editable</span>
+            <span class="chip">schema-versioned</span>
+          </div>
+        </div>
+
+        <div class="flow-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16m-6-6 6 6-6 6"/></svg>
+        </div>
+
+        <div class="stage-card md-card">
+          <span class="stage-no">STAGE 2 · BUILD</span>
+          <h3>Deterministic Markdown builder</h3>
+          <p>Pure-Python rules resolve multi-column layouts, merge cross-page paragraphs, normalize heading
+             levels and emit final Markdown. Same JSON in, same bytes out.</p>
+          <div class="chip-row">
+            <span class="chip">column detection</span>
+            <span class="chip">heading remap</span>
+            <span class="chip">byte-stable</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+        <p><span class="callout-title">Why it matters</span>
+        Spot a wrong heading or a missed footnote? Edit the JSON, run
+        <code class="inline-code">structmd doc.pdf --from-json</code>, and get corrected Markdown instantly —
+        without re-running the model.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ FEATURES ============================ -->
+  <section class="block" id="features">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="sec-tag">Features</span>
+        <h2>Built for real pipelines</h2>
+        <p>Everything you need between "I have 400 PDFs" and "they are clean Markdown files".</p>
+      </div>
+
+      <div class="features">
+        <div class="feature">
+          <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg></div>
+          <h3>Multi-column aware</h3>
+          <p>Reading order is resolved geometrically — full-width elements first, then left/right columns
+             interleaved by vertical position.</p>
+        </div>
+        <div class="feature">
+          <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z"/></svg></div>
+          <h3>Fast parallel batch mode</h3>
+          <p>An async worker pool converts entire directories concurrently with live progress, per-file error
+             isolation and resumable caching.</p>
+        </div>
+        <div class="feature">
+          <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 4.6-3.2 8.2-8 9-4.8-.8-8-4.4-8-9V7l8-4z"/><path d="m8.8 12 2.2 2.2 4.2-4.4"/></svg></div>
+          <h3>Deterministic by design</h3>
+          <p>Stage 2 is pure Python. Rebuild from cached JSON produces byte-identical output — ideal for
+             CI pipelines and regression tests.</p>
+        </div>
+        <div class="feature">
+          <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></div>
+          <h3>Content-hash caching</h3>
+          <p>Every conversion is keyed by file content hash. Re-run a 500-file batch after fixing one prompt
+             and only changed files hit the model again.</p>
+        </div>
+        <div class="feature">
+          <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></div>
+          <h3>One-command CLI</h3>
+          <p>Convert single files, pick page ranges, rebuild from JSON, or batch whole trees — all from a
+             single <code class="inline-code">structmd</code> command with layered configuration.</p>
+        </div>
+        <div class="feature">
+          <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .4-9A7 7 0 0 0 4.3 12.7 3.9 3.9 0 0 0 6 20h11.5z"/></svg></div>
+          <h3>Local-first, cloud-capable</h3>
+          <p>Runs against your own Ollama server for full privacy, or against Ollama cloud models when a
+             beefier VLM is convenient. Same command line.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================== QUICK START =========================== -->
+  <section class="block" id="quickstart">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="sec-tag">Quick start</span>
+        <h2>From zero to Markdown in three commands</h2>
+      </div>
+
+      <div data-tabs="qs">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-target="cli" role="tab">CLI</button>
+          <button class="tab" data-target="python" role="tab">Python API</button>
+          <button class="tab" data-target="batch" role="tab">Batch</button>
+          <button class="tab" data-target="rebuild" role="tab">Rebuild from JSON</button>
+        </div>
+        <div class="codebox">
+          <div class="panel active" data-panel-group="qs" data-panel="cli">
+            <pre id="code-cli"><span class="c">&lt;# install with the extra for your input format&gt;</span>
+<span class="c-prompt">$</span> pip install <span class="s">"structmd[pdf]"</span>
+
+<span class="c">&lt;# grab any Ollama vision model&gt;</span>
+<span class="c-prompt">$</span> ollama pull <span class="s">qwen3.5-vl</span>
+
+<span class="c">&lt;# convert&gt;</span>
+<span class="c-prompt">$</span> structmd thesis.pdf -o thesis.md --pages 1-8</pre>
+            <button class="copy-btn" aria-label="Copy CLI example"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
+
+          <div class="panel" data-panel-group="qs" data-panel="python">
+            <pre id="code-python"><span class="k">from</span> <span class="p">structmd</span> <span class="k">import</span> <span class="p">StructMDPipeline</span>
+
+<span class="k">with</span> <span class="f">StructMDPipeline</span>(model=<span class="s">"qwen3.5-vl"</span>) <span class="k">as</span> <span class="p">pipeline:</span>
+    <span class="p">doc = pipeline.</span><span class="f">process</span>(<span class="s">"report.pdf"</span>, output_path=<span class="s">"report.md"</span>)
+    <span class="f">print</span>(doc.markdown[:<span class="n">200</span>])
+
+<span class="c"># need just the JSON artifact?</span>
+<span class="p">extracted = pipeline.</span><span class="f">extract_only</span>(<span class="s">"report.pdf"</span>)
+extracted.<span class="f">save_json</span>(<span class="s">"report.extraction.json"</span>)</pre>
+            <button class="copy-btn" aria-label="Copy Python example"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
+
+          <div class="panel" data-panel-group="qs" data-panel="batch">
+            <pre id="code-batch"><span class="c">&lt;# convert every supported file in a tree, 4 workers&gt;</span>
+<span class="c-prompt">$</span> structmd batch ./contracts/ -o ./markdown/ --workers <span class="n">4</span>
+
+<span class="c">&lt;# only page 1 of each file (great for invoices)&gt;</span>
+<span class="c-prompt">$</span> structmd batch ./invoices/ -o ./out/ --pages <span class="n">1</span></pre>
+            <button class="copy-btn" aria-label="Copy batch example"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
+
+          <div class="panel" data-panel-group="qs" data-panel="rebuild">
+            <pre id="code-rebuild"><span class="c">&lt;# 1. extract once&gt;</span>
+<span class="c-prompt">$</span> structmd paper.pdf --extract-only -o paper.extraction.json
+
+<span class="c">&lt;# 2. fix anything you dislike in the JSON …&gt;</span>
+<span class="c-prompt">$</span> $EDITOR paper.extraction.json
+
+<span class="c">&lt;# 3. rebuild deterministically — the VLM never runs again&gt;</span>
+<span class="c-prompt">$</span> structmd paper.pdf --from-json -o paper.md</pre>
+            <button class="copy-btn" aria-label="Copy rebuild example"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================= FORMATS & MODELS ========================= -->
+  <section class="block" id="formats">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="sec-tag">Compatibility</span>
+        <h2>Formats and models</h2>
+      </div>
+
+      <div class="tablewrap" style="margin-bottom:34px;">
+        <table class="tbl">
+          <thead><tr><th>Input format</th><th>Extension(s)</th><th>Handled by</th><th>Extra needed</th></tr></thead>
+          <tbody>
+            <tr><td>PDF documents</td><td>.pdf</td><td>PyMuPDF page renderer</td><td><code class="inline-code">pip install "structmd[pdf]"</code></td></tr>
+            <tr><td>Office documents</td><td>.docx .pptx .xlsx .odt .ods .odp</td><td>LibreOffice headless → PDF</td><td>system LibreOffice</td></tr>
+            <tr><td>Images</td><td>.png .jpg .jpeg .webp .tiff .bmp</td><td>Straight to the VLM</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tablewrap">
+        <table class="tbl">
+          <thead><tr><th>Model family</th><th>Examples</th><th>Prompt profile</th></tr></thead>
+          <tbody>
+            <tr><td>Qwen-VL</td><td>qwen2-vl, qwen2.5-vl, qwen3.5-vl</td><td>Tuned for Qwen's grounding style</td></tr>
+            <tr><td>SmolVLM</td><td>smolvl2, smolvlm</td><td>Compact-model friendly wording</td></tr>
+            <tr><td>PaliGemma</td><td>paligemma, paligemma2</td><td>Short-instruction profile</td></tr>
+            <tr><td>Llama Vision</td><td>llama3.2-vision</td><td>Llama-native formatting rules</td></tr>
+            <tr><td>Default</td><td>gemma*, minicpm-v, moondream, anything else</td><td>Generic robust contract</td></tr>
+            <tr><td>Ollama cloud</td><td>append <code class="inline-code">:cloud</code> to any tag</td><td>Same profiles, remote inference</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================== COMPARISON =========================== -->
+  <section class="block" id="compare">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="sec-tag">Landscape</span>
+        <h2>How structmd compares</h2>
+      </div>
+      <div class="tablewrap">
+        <table class="tbl">
+          <thead><tr><th></th><th>Approach</th><th>Editable intermediate</th><th>Deterministic rebuild</th><th>Local-first</th><th>License</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>structmd</td>
+              <td>Two-stage: VLM → JSON → rules</td>
+              <td class="yes">Yes — cached JSON</td>
+              <td class="yes">Yes — byte-identical</td>
+              <td class="yes">Yes (Ollama)</td>
+              <td>MIT</td>
+            </tr>
+            <tr>
+              <td>MinerU</td>
+              <td>Layout detection + OCR models</td>
+              <td class="no">No</td>
+              <td class="no">No</td>
+              <td class="yes">Yes</td>
+              <td>AGPL-3.0</td>
+            </tr>
+            <tr>
+              <td>Marker</td>
+              <td>Deep learning heuristics</td>
+              <td class="no">No</td>
+              <td class="no">No</td>
+              <td class="yes">Yes</td>
+              <td>GPL-3.0 / commercial</td>
+            </tr>
+            <tr>
+              <td>py-zerox</td>
+              <td>VLM per page (OpenAI-centric)</td>
+              <td class="no">No</td>
+              <td class="no">No</td>
+              <td class="no">Cloud API</td>
+              <td>MIT</td>
+            </tr>
+            <tr>
+              <td>LlamaParse</td>
+              <td>Hosted SaaS API</td>
+              <td class="no">No</td>
+              <td class="no">No</td>
+              <td class="no">Cloud API</td>
+              <td>Proprietary</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== FOOTER ============================== -->
+  <footer class="site">
+    <div class="wrap">
+      <div class="foot-grid">
+        <div style="max-width:340px;">
+          <a class="brand" href="index.html" style="margin-bottom:14px;">
+            <svg class="mark" width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
+              <defs><linearGradient id="lg-foot" x1="0" y1="0" x2="32" y2="32">
+                <stop offset="0" stop-color="#6d5cff"/><stop offset="0.55" stop-color="#00b3e6"/><stop offset="1" stop-color="#ff4f9a"/>
+              </linearGradient></defs>
+              <rect width="32" height="32" rx="8" fill="url(#lg-foot)"/>
+              <path d="M9 11h14M9 16h14M9 21h8" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+            </svg>
+            structmd
+          </a>
+          <p style="color:var(--muted); font-size:14px;">Documents in, structured Markdown out.
+             Local vision models, deterministic builds, zero lock-in.</p>
+        </div>
+        <div class="foot-col">
+          <h4>Documentation</h4>
+          <a href="docs.html#installation">Installation</a>
+          <a href="docs.html#python-api">Python API</a>
+          <a href="docs.html#cli-reference">CLI reference</a>
+          <a href="docs.html#configuration">Configuration</a>
+        </div>
+        <div class="foot-col">
+          <h4>Project</h4>
+          <a href="https://github.com/umar052001/structmd" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/umar052001/structmd/issues" target="_blank" rel="noopener">Issues</a>
+          <a href="https://github.com/umar052001/structmd/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+          <a href="https://github.com/umar052001/structmd/releases" target="_blank" rel="noopener">Releases</a>
+        </div>
+        <div class="foot-col">
+          <h4>Ecosystem</h4>
+          <a href="https://pypi.org/project/structmd/" target="_blank" rel="noopener">PyPI package</a>
+          <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>
+          <a href="https://ollama.com/cloud" target="_blank" rel="noopener">Ollama Cloud</a>
+        </div>
+      </div>
+      <div class="foot-note">
+        <span>MIT License · © 2026 structmd contributors</span>
+        <span>Built with plain HTML &amp; CSS — no frameworks.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/script.js"></script>
+</body>
+</html>
