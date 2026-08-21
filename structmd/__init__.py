@@ -5,6 +5,10 @@ Two-stage architecture:
   Stage 2: deterministic Markdown building from that JSON.
 """
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _package_version
+
+from structmd.assets import AssetExtractor, attach_assets
 from structmd.batch.processor import BatchProcessor
 from structmd.builders.markdown import BuilderConfig, MarkdownBuilder
 from structmd.cache.manager import CacheManager
@@ -25,7 +29,10 @@ from structmd.extractors.base import BaseExtractor
 from structmd.extractors.ollama import OllamaExtractor
 from structmd.pipeline import StructMDPipeline
 
-__version__ = "0.1.0"
+try:
+    __version__ = _package_version("structmd")
+except PackageNotFoundError:  # running from a source checkout without install
+    __version__ = "0.0.0.dev0"
 
 __all__ = [
     # Pipeline & config
@@ -54,5 +61,8 @@ __all__ = [
     # Batch & cache
     "BatchProcessor",
     "CacheManager",
+    # Figure assets
+    "AssetExtractor",
+    "attach_assets",
     "__version__",
 ]

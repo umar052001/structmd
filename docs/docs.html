@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Documentation — structmd</title>
-  <meta name="description" content="Full documentation for structmd: installation, Ollama setup (local and cloud), Python API, CLI reference, configuration, caching and batch processing.">
+  <meta name="description" content="Full documentation for structmd: installation, Ollama setup (local and cloud), batch-converting a folder of PDFs, the complete Python API, CLI reference, configuration, caching and figure extraction.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -41,7 +41,7 @@
         <a href="https://github.com/umar052001/structmd" target="_blank" rel="noopener">GitHub</a>
         <a class="nav-cta" href="https://pypi.org/project/structmd/" target="_blank" rel="noopener">PyPI</a>
         <button class="theme-toggle" aria-label="Toggle dark mode">
-          <svg class="moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          <svg class="moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
           <svg class="sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg>
         </button>
       </div>
@@ -60,15 +60,17 @@
       </div>
       <div class="side-group">
         <div class="side-title">Guides</div>
-        <a class="side-link" href="#python-api">Python API</a>
-        <a class="side-link" href="#cli-reference">CLI reference</a>
-        <a class="side-link" href="#configuration">Configuration</a>
-        <a class="side-link" href="#caching">Caching</a>
-        <a class="side-link" href="#batch">Batch processing</a>
+        <a class="side-link" href="#folder-of-pdfs">Convert a folder of PDFs</a>
+        <a class="side-link" href="#two-stage">The two-stage workflow</a>
+        <a class="side-link" href="#figures">Figure extraction</a>
+        <a class="side-link" href="#caching">Caching &amp; resume</a>
       </div>
       <div class="side-group">
-        <div class="side-title">Concepts</div>
-        <a class="side-link" href="#two-stage">The two-stage workflow</a>
+        <div class="side-title">Reference</div>
+        <a class="side-link" href="#python-api">Python API</a>
+        <a class="side-link" href="#batch">Batch processing</a>
+        <a class="side-link" href="#cli-reference">CLI reference</a>
+        <a class="side-link" href="#configuration">Configuration</a>
         <a class="side-link" href="#json-artifact">Extraction JSON format</a>
         <a class="side-link" href="#troubleshooting">Troubleshooting</a>
       </div>
@@ -81,14 +83,21 @@
       <p>structmd requires <strong>Python 3.9+</strong> and a reachable <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a> server (local daemon or Ollama Cloud).</p>
 
       <h3>Core package</h3>
-      <div class="codebox"><pre><span class="c-prompt">$</span> pip install structmd</pre></div>
+      <div class="codebox"><pre><span class="c-prompt">$</span> pip install <span class="s">"structmd[pdf]"</span>   <span class="c"># uv: uv add "structmd[pdf]"</span></pre></div>
 
       <h3>Format extras</h3>
-      <p>Pick the extra matching your input formats:</p>
-      <div class="codebox"><pre><span class="c-prompt">$</span> pip install <span class="s">"structmd[pdf]"</span>     <span class="c"># PDF support via PyMuPDF</span>
-<span class="c-prompt">$</span> pip install <span class="s">"structmd[office]"</span>  <span class="c"># Office documents via LibreOffice bridge</span>
-<span class="c-prompt">$</span> pip install <span class="s">"structmd[all]"</span>     <span class="c"># everything at once</span></pre></div>
-      <p>Images (<code class="inline-code">.png</code>, <code class="inline-code">.jpg</code>, <code class="inline-code">.webp</code>, <code class="inline-code">.tiff</code>, <code class="inline-code">.bmp</code>) work with the core install.</p>
+      <div class="tablewrap">
+        <table class="tbl">
+          <thead><tr><th>Extra</th><th>Installs</th><th>Needed for</th></tr></thead>
+          <tbody>
+            <tr><td><code class="inline-code">[pdf]</code></td><td>PyMuPDF</td><td>PDF rendering — also powers figure extraction</td></tr>
+            <tr><td><code class="inline-code">[office]</code></td><td>PyMuPDF</td><td>Office documents (routed through LibreOffice → PDF)</td></tr>
+            <tr><td><code class="inline-code">[all]</code></td><td>everything</td><td>one-stop install</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Images (<code class="inline-code">.png</code>, <code class="inline-code">.jpg</code>, <code class="inline-code">.webp</code>, <code class="inline-code">.tiff</code>, <code class="inline-code">.bmp</code>) work with the core install.
+         Office conversion additionally needs <strong>LibreOffice</strong> (<code class="inline-code">soffice</code>) on your <code class="inline-code">PATH</code>.</p>
 
       <h3>From source (development)</h3>
       <div class="codebox"><pre><span class="c-prompt">$</span> git clone https://github.com/umar052001/structmd.git
@@ -100,8 +109,8 @@
 
       <h3>Local models (fully private)</h3>
       <p>Install the Ollama daemon, then pull any vision-capable model:</p>
-      <div class="codebox"><pre><span class="c-prompt">$</span> ollama pull qwen2.5-vl:7b    <span class="c"># strong general-purpose VLM</span>
-<span class="c-prompt">$</span> ollama pull smolvlm          <span class="c"># small &amp; fast on CPUs</span></pre></div>
+      <div class="codebox"><pre><span class="c-prompt">$</span> ollama pull qwen2-vl:2b       <span class="c"># ~1.6 GB, good default</span>
+<span class="c-prompt">$</span> ollama pull smolvlm           <span class="c"># small &amp; fast on CPUs</span></pre></div>
       <p>structmd talks to <code class="inline-code">http://localhost:11434</code> by default. If your model tag is missing the
          <code class="inline-code">:latest</code> suffix, structmd appends it automatically after checking <code class="inline-code">/api/tags</code>.</p>
 
@@ -115,68 +124,369 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
         <p><span class="callout-title">Privacy note</span>
         Local models never send your documents anywhere. Cloud models route page images through Ollama's
-        infrastructure — choose based on your data sensitivity. Remote inference is also slower per request;
-        raise <code class="inline-code">STRUCTMD_OLLAMA_TIMEOUT</code> if you hit timeouts on large pages.</p>
+        infrastructure — choose based on your data sensitivity. Cloud inference is also typically <em>faster</em>
+        than CPU-bound local models; raise <code class="inline-code">STRUCTMD_OLLAMA_TIMEOUT</code> if you hit timeouts on large pages.</p>
       </div>
 
       <h2 id="first-conversion">First conversion</h2>
-      <div class="codebox"><pre><span class="c-prompt">$</span> structmd report.pdf -o report.md
+      <div class="codebox"><pre><span class="c-prompt">$</span> structmd report.pdf -o report.md --json report.json
 
 <span class="c-dim">Extracting</span> <span class="c-hl">12 pages</span> <span class="c-dim">━━━━━━━━━━━━</span> <span class="c-ok">100%</span>
-<span class="c-dim">Building Markdown …</span> <span class="c-ok">done</span>
-<span class="c-ok">✓</span> wrote <span class="c-hl">report.md</span> <span class="c-dim">(38.2 KB)</span></pre></div>
-      <p>The extraction JSON is written next to the output as <code class="inline-code">report.extraction.json</code>.
-         Keep it — it is your editable source of truth (see <a href="#two-stage">the two-stage workflow</a>).</p>
+<span class="c-ok">✓</span> wrote <span class="c-hl">report.md</span></pre></div>
+      <p>Add <code class="inline-code">--json</code> when you want the Stage-1 artifact on disk. It is optional — but keep it:
+         it is your editable source of truth (see <a href="#two-stage">the two-stage workflow</a>).</p>
 
+      <!-- =========================================================== -->
+      <h2 id="folder-of-pdfs">Convert a folder of PDFs</h2>
+      <p>The most common job: point structmd at a directory and get one <code class="inline-code">.md</code> per document.
+         Here is a complete, runnable script:</p>
+
+      <div class="codebox"><pre><span class="k">from</span> <span class="p">pathlib</span> <span class="k">import</span> <span class="p">Path</span>
+
+<span class="k">from</span> <span class="p">structmd</span> <span class="k">import</span> <span class="p">StructMDPipeline</span>
+<span class="k">from</span> <span class="p">structmd.config</span> <span class="k">import</span> <span class="p">StructMDConfig</span>
+
+<span class="c"># 1. Configure once — these settings apply to every document.</span>
+<span class="p">config =</span> <span class="f">StructMDConfig</span>(
+    ollama_model=<span class="s">"gemma4:cloud"</span>,   <span class="c"># or a local tag, e.g. "qwen2-vl:2b"</span>
+    ollama_max_workers=<span class="n">3</span>,          <span class="c"># pages processed concurrently</span>
+    save_assets=<span class="kc">True</span>,              <span class="c"># crop figures out as PNGs</span>
+)
+
+<span class="c"># 2. Collect inputs. rglob walks subfolders; glob is top-level only.</span>
+<span class="p">pdfs =</span> <span class="f">sorted</span>(<span class="f">Path</span>(<span class="s">"papers"</span>).<span class="f">rglob</span>(<span class="s">"*.pdf"</span>))
+<span class="f">print</span>(<span class="s">f"Found {len(pdfs)} PDFs"</span>)
+
+<span class="c"># 3. Run. All pages of all documents share one async worker pool,</span>
+<span class="c">#    and finished pages are cached individually.</span>
+<span class="k">with</span> <span class="f">StructMDPipeline</span>(config) <span class="k">as</span> <span class="p">pipeline:</span>
+    <span class="p">documents = pipeline.</span><span class="f">process_batch</span>(
+        [<span class="f">str</span>(p) <span class="k">for</span> p <span class="k">in</span> pdfs],
+        output_dir=<span class="s">"markdown"</span>,     <span class="c"># anchors figure assets at markdown/figures/</span>
+    )
+
+<span class="c"># 4. Write the Markdown files.</span>
+<span class="k">for</span> <span class="p">doc</span> <span class="k">in</span> <span class="p">documents:</span>
+    <span class="p">stem =</span> <span class="f">Path</span>(doc.metadata[<span class="s">"source_path"</span>]).stem
+    <span class="p">target =</span> <span class="f">Path</span>(<span class="s">"markdown"</span>) / <span class="s">f"{stem}.md"</span>
+    doc.<span class="f">save</span>(<span class="f">str</span>(target))
+    <span class="f">print</span>(<span class="s">f"{target}  ({doc.metadata['page_count']} pages)"</span>)</pre></div>
+
+      <h3>What each import gives you</h3>
+      <div class="tablewrap">
+        <table class="tbl">
+          <thead><tr><th>Import</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td><code class="inline-code">pathlib.Path</code></td><td>stdlib — walking the folder and building output paths</td></tr>
+            <tr><td><code class="inline-code">structmd.StructMDPipeline</code></td><td>the orchestrator: converters + extractor + builder + cache, wired together</td></tr>
+            <tr><td><code class="inline-code">structmd.config.StructMDConfig</code></td><td>typed configuration dataclass; every CLI/env option is a field on it</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Behavior you get for free</h3>
+      <ul>
+        <li><strong>Parallelism</strong> — all pages from all PDFs flow through one worker pool
+            (<code class="inline-code">ollama_max_workers</code>), not one PDF at a time.</li>
+        <li><strong>Resumability</strong> — each extracted page is cached under <code class="inline-code">~/.cache/structmd</code>.
+            Interrupted a 500-page run at page 200? Re-run it; only pages 201+ hit the model.</li>
+        <li><strong>Failure isolation</strong> — one corrupt PDF logs an error and is skipped; the rest of the batch completes.</li>
+        <li><strong>Mixed inputs</strong> — pass <code class="inline-code">.docx</code>, <code class="inline-code">.pptx</code>, images, anything supported;
+            they ride the same pool.</li>
+      </ul>
+
+      <p>The CLI equivalent:</p>
+      <div class="codebox"><pre><span class="c-prompt">$</span> structmd batch ./papers/ -o markdown/ --save-assets</pre></div>
+
+      <!-- =========================================================== -->
       <h2 id="python-api">Python API</h2>
+      <p>Everything in this section is importable from the package root:
+         <code class="inline-code">from structmd import StructMDPipeline, StructMDConfig, …</code></p>
 
       <h3>StructMDPipeline</h3>
-      <p>The orchestrator facade. It wires converter → extractor → builder and manages the cache lifecycle.</p>
-      <div class="codebox"><pre id="api-basic"><span class="k">from</span> <span class="p">structmd</span> <span class="k">import</span> <span class="p">StructMDPipeline</span>
+      <p>The high-level facade. It wires converter → extractor → builder, manages the cache lifecycle,
+         and works as a context manager so HTTP resources are released on exit.</p>
+      <div class="codebox"><pre><span class="k">from</span> <span class="p">structmd</span> <span class="k">import</span> <span class="p">StructMDPipeline, StructMDConfig</span>
 
-<span class="k">with</span> <span class="f">StructMDPipeline</span>(
-    model=<span class="s">"qwen2.5-vl:7b"</span>,            <span class="c"># any Ollama vision tag</span>
-    base_url=<span class="s">"http://localhost:11434"</span>, <span class="c"># default</span>
-) <span class="k">as</span> <span class="p">pipeline:</span>
-    doc = pipeline.<span class="f">process</span>(<span class="s">"report.pdf"</span>, output_path=<span class="s">"report.md"</span>)
-    <span class="f">print</span>(doc.markdown)</pre>
-      <button class="copy-btn" aria-label="Copy code"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-
-      <h3>Stage separation</h3>
-      <div class="codebox"><pre><span class="c"># Stage 1 only — extraction to JSON, no Markdown built</span>
-<span class="p">extracted = pipeline.</span><span class="f">extract_only</span>(<span class="s">"report.pdf"</span>, pages=<span class="s">"1,3,5-10"</span>)
-extracted.<span class="f">save_json</span>(<span class="s">"report.extraction.json"</span>)
-
-<span class="c"># Stage 2 only — rebuild Markdown from any extraction JSON</span>
-<span class="p">md = pipeline.</span><span class="f">build_from_json</span>(<span class="s">"report.extraction.json"</span>, output_path=<span class="s">"report.md"</span>)</pre></div>
-
-      <h3>Batch from Python</h3>
-      <div class="codebox"><pre><span class="p">results = pipeline.</span><span class="f">process_batch</span>(
-    paths=[<span class="s">"a.pdf"</span>, <span class="s">"b.docx"</span>, <span class="s">"scan.png"</span>],
-    output_dir=<span class="s">"./markdown/"</span>,
-    workers=<span class="n">4</span>,                       <span class="c"># concurrent conversions</span>
+<span class="p">config =</span> <span class="f">StructMDConfig</span>(
+    ollama_model=<span class="s">"qwen2-vl:2b"</span>,          <span class="c"># any Ollama vision tag</span>
+    ollama_url=<span class="s">"http://localhost:11434"</span>,  <span class="c"># default</span>
 )
-<span class="k">for</span> <span class="p">r</span> <span class="k">in</span> <span class="p">results:</span>
-    <span class="f">print</span>(r.input_path, <span class="s">"->"</span>, r.output_path <span class="k">or</span> r.error)</pre></div>
-      <p>Inside a running event loop use <code class="inline-code">await pipeline.process_batch_async(...)</code> instead —
-         it shares the same worker pool without spawning threads over your loop.</p>
 
+<span class="k">with</span> <span class="f">StructMDPipeline</span>(config) <span class="k">as</span> <span class="p">pipeline:</span>
+    <span class="p">result = pipeline.</span><span class="f">process</span>(
+        <span class="s">"report.pdf"</span>,
+        output_json=<span class="s">"report.json"</span>,   <span class="c"># optional: keep Stage 1 output</span>
+        output_md=<span class="s">"report.md"</span>,       <span class="c"># optional: write final Markdown</span>
+    )
+    <span class="f">print</span>(result.title)                      <span class="c"># from the first heading</span>
+    <span class="f">print</span>(result.content[:<span class="n">200</span>])              <span class="c"># the Markdown itself</span>
+    <span class="f">print</span>(result.metadata[<span class="s">"page_count"</span>])     <span class="c"># 12</span></pre></div>
+
+      <h3>Pipeline methods</h3>
+      <div class="tablewrap">
+        <table class="tbl">
+          <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code class="inline-code">process(input_path, output_json=None, output_md=None,<br>pages=None, force=False)</code></td>
+              <td><code class="inline-code">MarkdownDocument</code></td>
+              <td>Full pipeline: convert → extract → build. Writes files when paths are given.</td>
+            </tr>
+            <tr>
+              <td><code class="inline-code">extract_only(input_path, output_json=None,<br>pages=None, force=False)</code></td>
+              <td><code class="inline-code">ExtractedDocument</code></td>
+              <td>Stage 1 only. Results cached per page.</td>
+            </tr>
+            <tr>
+              <td><code class="inline-code">build_from_json(json_path, output_md=None)</code></td>
+              <td><code class="inline-code">MarkdownDocument</code></td>
+              <td>Stage 2 only. No VLM call, no source file needed.</td>
+            </tr>
+            <tr>
+              <td><code class="inline-code">process_batch(paths, pages=None,<br>force=False, output_dir=None)</code></td>
+              <td><code class="inline-code">list[MarkdownDocument]</code></td>
+              <td>Synchronous batch over a shared worker pool. Safe in scripts and Jupyter.</td>
+            </tr>
+            <tr>
+              <td><code class="inline-code">process_batch_async(...)</code></td>
+              <td>same</td>
+              <td>Async variant for code already running inside an event loop.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p><code class="inline-code">pages</code> takes a list of 1-indexed page numbers — e.g. <code class="inline-code">[1, 3, 5, 6, 7]</code>.
+         Selected pages keep their true numbers throughout extraction, caching, and output markers.</p>
+
+      <h3>MarkdownDocument</h3>
+      <div class="tablewrap">
+        <table class="tbl">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code class="inline-code">title</code></td><td><code class="inline-code">str | None</code></td><td>Document title (first H1 candidate).</td></tr>
+            <tr><td><code class="inline-code">content</code></td><td><code class="inline-code">str</code></td><td>The final Markdown.</td></tr>
+            <tr><td><code class="inline-code">metadata</code></td><td><code class="inline-code">dict</code></td><td>Includes <code class="inline-code">source_path</code>, <code class="inline-code">page_count</code>, <code class="inline-code">model</code>, <code class="inline-code">dpi</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><code class="inline-code">.save(path)</code> writes the file (prepends <code class="inline-code"># title</code> when appropriate) and returns the <code class="inline-code">Path</code>.</p>
+
+      <h3>The extraction data model</h3>
+      <p><code class="inline-code">ExtractedDocument</code> holds <code class="inline-code">pages: list[ExtractedPage]</code>; each page holds
+         <code class="inline-code">elements: list[DocumentElement]</code>. Every element carries:</p>
+      <div class="tablewrap">
+        <table class="tbl">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code class="inline-code">type</code></td><td><code class="inline-code">ElementType</code></td><td><code class="inline-code">heading</code>, <code class="inline-code">paragraph</code>, <code class="inline-code">table</code>, <code class="inline-code">list_item</code>, <code class="inline-code">caption</code>, <code class="inline-code">image</code>, <code class="inline-code">code_block</code>, <code class="inline-code">blockquote</code>, <code class="inline-code">footnote</code>, <code class="inline-code">header</code>, <code class="inline-code">footer</code>, <code class="inline-code">page_number</code>, <code class="inline-code">horizontal_rule</code></td></tr>
+            <tr><td><code class="inline-code">text</code></td><td><code class="inline-code">str</code></td><td>Element content (tables use <code class="inline-code">table_data</code>).</td></tr>
+            <tr><td><code class="inline-code">bbox</code></td><td><code class="inline-code">BoundingBox | None</code></td><td>Pixel coordinates on the rendered page, top-left origin.</td></tr>
+            <tr><td><code class="inline-code">page_number</code></td><td><code class="inline-code">int</code></td><td>True 1-indexed page number.</td></tr>
+            <tr><td><code class="inline-code">table_data</code></td><td><code class="inline-code">list[list[str]] | None</code></td><td>Rows for <code class="inline-code">table</code> elements.</td></tr>
+            <tr><td><code class="inline-code">heading_level</code></td><td><code class="inline-code">int | None</code></td><td>Depth for <code class="inline-code">heading</code> elements.</td></tr>
+            <tr><td><code class="inline-code">confidence</code></td><td><code class="inline-code">float</code></td><td>VLM self-reported confidence.</td></tr>
+            <tr><td><code class="inline-code">metadata</code></td><td><code class="inline-code">dict</code></td><td>Extensible — figure assets record <code class="inline-code">asset_path</code> here.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>All three models serialize cleanly: <code class="inline-code">.to_dict()</code> / <code class="inline-code">.from_dict()</code> /
+         <code class="inline-code">.to_json()</code> / <code class="inline-code">.from_json()</code>, plus
+         <code class="inline-code">ExtractedDocument.save_json(path)</code>.</p>
+
+      <h3>Lower-level components</h3>
+      <div class="tablewrap">
+        <table class="tbl">
+          <thead><tr><th>Class</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code class="inline-code">BatchProcessor(extractor, max_workers=4, dpi=150,<br>converters=None, cache=None, force=False)</code></td>
+              <td>The async engine under the pipeline. <code class="inline-code">await process_batch(paths, on_page_complete=None,<br>on_doc_complete=None, pages=None)</code> returns
+                  <code class="inline-code">list[ExtractedDocument]</code>. Callbacks receive <code class="inline-code">(doc_id, document)</code> /
+                  <code class="inline-code">(doc_id, page_number, page)</code>.</td>
+            </tr>
+            <tr>
+              <td><code class="inline-code">AssetExtractor(dpi=200)</code></td>
+              <td>Figure cropping — see <a href="#figures">Figure extraction</a>.</td>
+            </tr>
+            <tr>
+              <td><code class="inline-code">attach_assets(source_path, document,<br>markdown_output_path, dpi=200, dirname="figures")</code></td>
+              <td>Convenience wrapper that crops figures beside a Markdown target and annotates elements in place.</td>
+            </tr>
+            <tr>
+              <td><code class="inline-code">CacheManager(cache_dir="~/.cache/structmd")</code></td>
+              <td>Content-addressed JSON cache with document-level (<code class="inline-code">load</code>/<code class="inline-code">save</code>)
+                  and page-level (<code class="inline-code">load_page</code>/<code class="inline-code">save_page</code>) APIs, atomic writes,
+                  and explicit <code class="inline-code">invalidate(file_path)</code>.</td>
+            </tr>
+            <tr>
+              <td><code class="inline-code">OllamaExtractor(config)</code></td>
+              <td>Stage 1 standalone: <code class="inline-code">extract_page(image, page_number)</code>,
+                  <code class="inline-code">extract_document(images)</code>, async twins included.</td>
+            </tr>
+            <tr>
+              <td><code class="inline-code">MarkdownBuilder(config=None)</code></td>
+              <td>Stage 2 standalone: <code class="inline-code">build(extracted) -&gt; MarkdownDocument</code>. Pure functions only.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Exceptions</h3>
+      <p>All derive from <code class="inline-code">structmd.core.StructMDError</code>:
+         <code class="inline-code">OllamaConnectionError</code>, <code class="inline-code">ModelNotFoundError</code>,
+         <code class="inline-code">ConversionError</code>, <code class="inline-code">CacheError</code>.</p>
+
+      <!-- =========================================================== -->
+      <h2 id="two-stage">The two-stage workflow</h2>
+      <p>structmd deliberately forbids the VLM from writing Markdown directly. Instead:</p>
+      <ol>
+        <li><strong>Stage 1 (model):</strong> each rendered page image is described as typed, positioned JSON elements.</li>
+        <li><strong>Artifact:</strong> the JSON is saved and cached — inspectable, diffable, hand-editable.</li>
+        <li><strong>Stage 2 (rules):</strong> a deterministic builder resolves columns, merges cross-page paragraphs,
+            normalizes headings and emits Markdown. Identical JSON always yields identical bytes.</li>
+      </ol>
+
+      <p>This pays off in practice — extract once, iterate forever:</p>
+      <div class="codebox"><pre><span class="k">from</span> <span class="p">structmd</span> <span class="k">import</span> <span class="p">StructMDPipeline</span>
+
+<span class="k">with</span> <span class="f">StructMDPipeline</span>() <span class="k">as</span> <span class="p">pipeline:</span>
+    <span class="c"># Stage 1 only: the VLM runs here (slow, cached afterwards)</span>
+    <span class="p">doc = pipeline.</span><span class="f">extract_only</span>(<span class="s">"report.pdf"</span>, output_json=<span class="s">"report.json"</span>)
+
+    <span class="c"># ... inspect / hand-edit report.json ...</span>
+    <span class="c"># e.g. fix a heading level, correct a table cell, drop a stray footer.</span>
+
+    <span class="c"># Stage 2 only: deterministic rebuild (instant, no VLM)</span>
+    <span class="p">md = pipeline.</span><span class="f">build_from_json</span>(<span class="s">"report.json"</span>, output_md=<span class="s">"report.md"</span>)</pre></div>
+
+      <p>Or from the shell:</p>
+      <div class="codebox"><pre><span class="c-prompt">$</span> structmd report.pdf --json report.json -o report.md   <span class="c"># full run</span>
+<span class="c-prompt">$</span> vim report.json                                       <span class="c"># fix the JSON</span>
+<span class="c-prompt">$</span> structmd --from-json report.json -o report.md         <span class="c"># instant rebuild</span></pre></div>
+
+      <!-- =========================================================== -->
+      <h2 id="figures">Figure extraction</h2>
+      <p>Set <code class="inline-code">save_assets=True</code> (or pass <code class="inline-code">--save-assets</code>) and every region the VLM
+         flagged as an image is clip-rendered from the source PDF at <code class="inline-code">assets_dpi</code> (default 200)
+         into <code class="inline-code">&lt;output_dir&gt;/figures/</code>. The Markdown links the real files:</p>
+
+      <div class="codebox"><pre>![Diagram of the Vision Transformer architecture](figures/2010.11929_p03_1.png)</pre></div>
+
+      <h3>Design notes</h3>
+      <ul>
+        <li><strong>Clip-rendering, not object extraction</strong> — figures in academic PDFs are usually vector
+            graphics plus text labels; rendering the region captures exactly what a reader sees.</li>
+        <li><strong>Blank-crop guard</strong> — VLM boxes occasionally land on empty space; such crops are detected
+            by pixel-uniformity and dropped instead of producing broken images.</li>
+        <li><strong>Degenerate-box guard</strong> — boxes are clamped to the page and slivers below 12 pt are skipped.</li>
+        <li><strong>PDF-only for now</strong> — Office/image inputs skip asset extraction gracefully.</li>
+      </ul>
+
+      <h3>Standalone use</h3>
+      <p>Attaching assets to an extraction you already have (e.g. loaded from cached JSON — no VLM needed):</p>
+      <div class="codebox"><pre><span class="k">from</span> <span class="p">structmd</span> <span class="k">import</span> <span class="p">attach_assets</span>
+
+<span class="p">written =</span> <span class="f">attach_assets</span>(<span class="s">"paper.pdf"</span>, extracted_document, <span class="s">"output/report.md"</span>, dpi=<span class="n">200</span>)
+<span class="c"># -> writes output/figures/*.png, returns the relative paths,</span>
+<span class="c">#    and annotates each image element with metadata["asset_path"]</span></pre></div>
+
+      <!-- =========================================================== -->
+      <h2 id="caching">Caching &amp; resume</h2>
+      <p>Every extraction result is stored under <code class="inline-code">~/.cache/structmd</code>, keyed by a SHA-256 hash of the
+         input file's <em>absolute path, mtime and size</em>:</p>
+      <ul>
+        <li><strong>Modify the file</strong> → everything for it invalidates automatically; no stale output, ever.</li>
+        <li><strong>Move or copy the file</strong> → the new path starts with a fresh entry on its first run.</li>
+        <li><strong>Page level:</strong> individual pages are stored as <code class="inline-code">{key}_page{N}.json</code>.
+            Re-running a 20-page paper after editing one paragraph re-pays for exactly one page.</li>
+        <li><strong>Atomic writes:</strong> results land via <code class="inline-code">os.replace</code>, so crashes never corrupt entries.</li>
+      </ul>
+      <div class="codebox"><pre><span class="c-prompt">$</span> structmd big.pdf -o big.md            <span class="c"># slow first run</span>
+<span class="c-prompt">$</span> structmd big.pdf -o big.md            <span class="c"># seconds — served from cache</span>
+<span class="c-prompt">$</span> structmd big.pdf -o big.md --force    <span class="c"># bypass reads, refresh entries</span>
+<span class="c-prompt">$</span> structmd big.pdf -o big.md --no-cache <span class="c"># ignore the cache entirely</span></pre></div>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+        <p><span class="callout-title">Measured impact</span>
+        Our five-paper arXiv benchmark (77 pages, gemma4:cloud, 3 workers):
+        <strong>12m37s cold → 3.0s warm</strong>.</p>
+      </div>
+
+      <!-- =========================================================== -->
+      <h2 id="batch">Batch processing</h2>
+      <p>Point the CLI at a directory (or pass many files) and structmd walks the tree for supported formats:</p>
+      <div class="codebox"><pre><span class="c-prompt">$</span> structmd batch ./contracts/ -o ./markdown/ --workers <span class="n">4</span> --pages <span class="n">1</span></pre></div>
+      <ul>
+        <li>An async worker pool drives conversions concurrently; progress renders as a live bar.</li>
+        <li>A failure on one file — or one page — is logged and isolated; the batch continues.</li>
+        <li>Outputs are written as <code class="inline-code">&lt;stem&gt;.md</code> into the output directory.</li>
+        <li>Cached pages complete instantly, making re-runs cheap and resumable.</li>
+      </ul>
+
+      <h3>From Python</h3>
+      <div class="codebox"><pre><span class="k">import</span> <span class="p">asyncio</span>
+<span class="k">from</span> <span class="p">pathlib</span> <span class="k">import</span> <span class="p">Path</span>
+<span class="k">from</span> <span class="p">structmd</span> <span class="k">import</span> <span class="p">StructMDPipeline</span>
+
+<span class="k">async def</span> <span class="f">main</span>():
+    <span class="k">with</span> <span class="f">StructMDPipeline</span>() <span class="k">as</span> <span class="p">pipeline:</span>
+        <span class="p">docs =</span> <span class="k">await</span> pipeline.<span class="f">process_batch_async</span>(
+            [<span class="f">str</span>(p) <span class="k">for</span> p <span class="k">in</span> <span class="f">Path</span>(<span class="s">"papers"</span>).<span class="f">glob</span>(<span class="s">"*.pdf"</span>)]
+        )
+        <span class="k">for</span> <span class="p">d</span> <span class="k">in</span> <span class="p">docs:</span>
+            <span class="f">print</span>(d.metadata[<span class="s">"source_path"</span>], d.metadata[<span class="s">"page_count"</span>], <span class="s">"pages"</span>)
+
+<span class="p">asyncio.</span><span class="f">run</span>(<span class="f">main</span>())</pre></div>
+      <p><code class="inline-code">pipeline.process_batch(...)</code> is the synchronous twin — callable from plain scripts;
+         inside Jupyter it detects the running event loop and delegates to a helper thread automatically.</p>
+
+      <h3>Progress callbacks</h3>
+      <p>Need visibility? Drop to <code class="inline-code">BatchProcessor</code>:</p>
+      <div class="codebox"><pre><span class="k">import</span> <span class="p">asyncio</span>
+<span class="k">from</span> <span class="p">structmd</span> <span class="k">import</span> <span class="p">BatchProcessor, OllamaExtractor</span>
+<span class="k">from</span> <span class="p">structmd.config</span> <span class="k">import</span> <span class="p">StructMDConfig</span>
+
+<span class="p">config =</span> <span class="f">StructMDConfig</span>(ollama_model=<span class="s">"gemma4:cloud"</span>)
+
+<span class="k">def</span> <span class="f">on_doc</span>(<span class="p">doc_id, document):</span>
+    <span class="f">print</span>(<span class="s">f"done: {document.source_path} ({document.page_count} pages)"</span>)
+
+<span class="k">async def</span> <span class="f">main</span>():
+    <span class="p">processor =</span> <span class="f">BatchProcessor</span>(
+        <span class="f">OllamaExtractor</span>(config),
+        max_workers=config.ollama_max_workers,
+    )
+    <span class="p">documents =</span> <span class="k">await</span> processor.<span class="f">process_batch</span>(
+        [<span class="s">"a.pdf"</span>, <span class="s">"b.pdf"</span>],
+        on_doc_complete=on_doc,   <span class="c"># also: on_page_complete(doc_id, n, page)</span>
+    )
+
+<span class="p">asyncio.</span><span class="f">run</span>(<span class="f">main</span>())</pre></div>
+      <p>A tqdm progress bar renders out of the box.</p>
+
+      <!-- =========================================================== -->
       <h2 id="cli-reference">CLI reference</h2>
       <div class="tablewrap">
         <table class="tbl">
           <thead><tr><th>Flag</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td><code class="inline-code">-o, --output PATH</code></td><td>Output Markdown path (single mode) or directory (batch mode).</td></tr>
+            <tr><td><code class="inline-code">--md PATH</code></td><td>Alias of <code class="inline-code">-o</code>.</td></tr>
+            <tr><td><code class="inline-code">--json PATH</code></td><td>Save the intermediate Stage-1 extraction JSON.</td></tr>
+            <tr><td><code class="inline-code">--from-json</code></td><td>Treat INPUT as extraction JSON; skip the VLM entirely.</td></tr>
             <tr><td><code class="inline-code">--model NAME</code></td><td>Ollama vision model tag. Overrides config/env.</td></tr>
-            <tr><td><code class="inline-code">--base-url URL</code></td><td>Ollama API endpoint (default <code class="inline-code">http://localhost:11434</code>).</td></tr>
-            <tr><td><code class="inline-code">--pages SPEC</code></td><td>Page selection, e.g. <code class="inline-code">1,3,5-10</code>. Works in single and batch mode.</td></tr>
-            <tr><td><code class="inline-code">--extract-only</code></td><td>Stop after stage 1; write the extraction JSON only.</td></tr>
-            <tr><td><code class="inline-code">--from-json</code></td><td>Skip stage 1 entirely; rebuild Markdown from an existing JSON artifact.</td></tr>
-            <tr><td><code class="inline-code">--force</code></td><td>Ignore cached results and re-run extraction.</td></tr>
-            <tr><td><code class="inline-code">--no-cache</code></td><td>Disable the cache for this run.</td></tr>
+            <tr><td><code class="inline-code">--url URL</code></td><td>Ollama API endpoint (default <code class="inline-code">http://localhost:11434</code>).</td></tr>
             <tr><td><code class="inline-code">--workers N</code></td><td>Batch concurrency (default 4).</td></tr>
+            <tr><td><code class="inline-code">--dpi N</code></td><td>Page rendering resolution (default 150).</td></tr>
+            <tr><td><code class="inline-code">--pages SPEC</code></td><td>Page selection, e.g. <code class="inline-code">1,3,5-10</code>. Works in single and batch mode.</td></tr>
+            <tr><td><code class="inline-code">--save-assets</code></td><td>Crop figure regions out of PDFs as PNGs and link them in the Markdown.</td></tr>
+            <tr><td><code class="inline-code">--no-page-numbers</code></td><td>Suppress <code class="inline-code">&lt;!-- Page N --&gt;</code> markers.</td></tr>
+            <tr><td><code class="inline-code">--no-merge</code></td><td>Do not merge paragraphs continued across pages.</td></tr>
+            <tr><td><code class="inline-code">--force</code></td><td>Re-extract even if cached results exist (cache is refreshed).</td></tr>
+            <tr><td><code class="inline-code">--no-cache</code></td><td>Disable the cache for this run.</td></tr>
             <tr><td><code class="inline-code">--config PATH</code></td><td>Explicit config file instead of the layered lookup.</td></tr>
-            <tr><td><code class="inline-code">-v, --verbose</code></td><td>Debug logging to stderr.</td></tr>
+            <tr><td><code class="inline-code">-v, --verbose</code></td><td>Debug logging, including raw VLM I/O.</td></tr>
           </tbody>
         </table>
       </div>
@@ -185,10 +495,12 @@ extracted.<span class="f">save_json</span>(<span class="s">"report.extraction.js
       <div class="codebox"><pre><span class="c-prompt">$</span> structmd scan.png -o scan.md                     <span class="c"># image</span>
 <span class="c-prompt">$</span> structmd deck.pptx -o deck.md                    <span class="c"># office (needs LibreOffice)</span>
 <span class="c-prompt">$</span> structmd book.pdf -o book.md --pages <span class="n">1,3,5-10</span>   <span class="c"># page range</span>
-<span class="c-prompt">$</span> structmd report.pdf --extract-only               <span class="c"># JSON artifact only</span>
-<span class="c-prompt">$</span> structmd report.pdf --from-json                  <span class="c"># deterministic rebuild</span>
-<span class="c-prompt">$</span> structmd batch ./papers/ -o ./md/ --workers <span class="n">6</span>   <span class="c"># whole directory</span></pre></div>
+<span class="c-prompt">$</span> structmd report.pdf --json r.json -o r.md        <span class="c"># keep the JSON artifact</span>
+<span class="c-prompt">$</span> structmd --from-json r.json -o r.md              <span class="c"># deterministic rebuild</span>
+<span class="c-prompt">$</span> structmd batch ./papers/ -o ./md/ --workers <span class="n">6</span>   <span class="c"># whole directory</span>
+<span class="c-prompt">$</span> structmd batch ./papers/ -o ./md/ --save-assets  <span class="c"># …with figure PNGs</span></pre></div>
 
+      <!-- =========================================================== -->
       <h2 id="configuration">Configuration</h2>
       <p>Settings resolve in layers — later sources win:</p>
       <ol>
@@ -201,103 +513,99 @@ extracted.<span class="f">save_json</span>(<span class="s">"report.extraction.js
 
       <h3>Example <code>.structmd.yaml</code></h3>
       <div class="codebox"><pre><span class="k">ollama</span><span class="p">:</span>
-  <span class="k">model</span><span class="p">:</span> <span class="s">gemma4:cloud</span>
-  <span class="k">base_url</span><span class="p">:</span> <span class="s">http://localhost:11434</span>
-  <span class="k">timeout</span><span class="p">:</span> <span class="n">120</span>
+  <span class="k">url</span><span class="p">:</span> <span class="s">"http://localhost:11434"</span>
+  <span class="k">model</span><span class="p">:</span> <span class="s">"qwen2-vl:2b"</span>
+  <span class="k">timeout</span><span class="p">:</span> <span class="n">120</span>            <span class="c"># seconds per chat call</span>
+  <span class="k">max_workers</span><span class="p">:</span> <span class="n">4</span>          <span class="c"># concurrent page extractions</span>
 
 <span class="k">processing</span><span class="p">:</span>
   <span class="k">dpi</span><span class="p">:</span> <span class="n">150</span>
-  <span class="k">max_retries</span><span class="p">:</span> <span class="n">3</span>
+  <span class="k">detect_columns</span><span class="p">:</span> <span class="kc">true</span>            <span class="c"># heuristic multi-column reading order</span>
+  <span class="k">merge_continued_paragraphs</span><span class="p">:</span> <span class="kc">true</span>
+  <span class="k">normalize_headings</span><span class="p">:</span> <span class="kc">true</span>        <span class="c"># remap [1,3,3] -> [1,2,2]</span>
 
 <span class="k">output</span><span class="p">:</span>
-  <span class="k">page_breaks</span><span class="p">:</span> <span class="n">true</span>
-  <span class="k">image_alt_text</span><span class="p">:</span> <span class="n">true</span>
+  <span class="k">include_page_numbers</span><span class="p">:</span> <span class="kc">true</span>
+  <span class="k">page_number_format</span><span class="p">:</span> <span class="s">"\n&lt;!-- Page {page} --&gt;\n"</span>
+  <span class="k">table_caption_position</span><span class="p">:</span> <span class="s">"before"</span>  <span class="c"># or "after"</span>
 
 <span class="k">cache</span><span class="p">:</span>
-  <span class="k">enabled</span><span class="p">:</span> <span class="n">true</span>
-  <span class="k">dir</span><span class="p">:</span> <span class="s">~/.cache/structmd</span></pre></div>
+  <span class="k">dir</span><span class="p">:</span> <span class="s">"~/.cache/structmd"</span>
+
+<span class="c"># flat keys work too:</span>
+<span class="c"># cache_enabled: true</span>
+<span class="c"># save_assets: true</span>
+<span class="c"># assets_dirname: "figures"</span>
+<span class="c"># assets_dpi: 200</span></pre></div>
 
       <h3>Environment variables</h3>
+      <p>Every config field maps to a <code class="inline-code">STRUCTMD_*</code> variable (upper-cased field name). The common ones:</p>
       <div class="tablewrap">
         <table class="tbl">
           <thead><tr><th>Variable</th><th>Maps to</th></tr></thead>
           <tbody>
+            <tr><td><code class="inline-code">STRUCTMD_OLLAMA_URL</code></td><td>Ollama endpoint</td></tr>
             <tr><td><code class="inline-code">STRUCTMD_OLLAMA_MODEL</code></td><td>Default vision model tag</td></tr>
-            <tr><td><code class="inline-code">STRUCTMD_OLLAMA_BASE_URL</code></td><td>Ollama endpoint</td></tr>
             <tr><td><code class="inline-code">STRUCTMD_OLLAMA_TIMEOUT</code></td><td>Per-request timeout in seconds</td></tr>
-            <tr><td><code class="inline-code">STRUCTMD_CACHE_ENABLED</code></td><td><code class="inline-code">true</code> / <code class="inline-code">false</code></td></tr>
+            <tr><td><code class="inline-code">STRUCTMD_OLLAMA_MAX_WORKERS</code></td><td>Batch concurrency</td></tr>
+            <tr><td><code class="inline-code">STRUCTMD_DPI</code></td><td>Rendering DPI</td></tr>
             <tr><td><code class="inline-code">STRUCTMD_CACHE_DIR</code></td><td>Cache directory override</td></tr>
+            <tr><td><code class="inline-code">STRUCTMD_CACHE_ENABLED</code></td><td><code class="inline-code">true</code> / <code class="inline-code">false</code></td></tr>
+            <tr><td><code class="inline-code">STRUCTMD_SAVE_ASSETS</code></td><td>Enable figure extraction</td></tr>
+            <tr><td><code class="inline-code">STRUCTMD_VERBOSE</code></td><td>Debug logging</td></tr>
           </tbody>
         </table>
       </div>
 
-      <h2 id="caching">Caching</h2>
-      <p>Every conversion result is stored under <code class="inline-code">~/.cache/structmd</code>, keyed by a SHA-256 hash of the
-         input file's <em>content, size and mtime</em> — edit the PDF and the cache invalidates itself automatically.</p>
-      <ul>
-        <li><strong>Document level:</strong> final extraction JSON per file (<code class="inline-code">{key[:2]}/{key}.json</code>).</li>
-        <li><strong>Page level:</strong> individual page extractions survive when other pages change.</li>
-        <li><strong>Atomic writes:</strong> results land via <code class="inline-code">os.replace</code>, so crashes never corrupt entries.</li>
-      </ul>
-      <div class="codebox"><pre><span class="c-prompt">$</span> structmd big.pdf -o big.md            <span class="c"># slow first run</span>
-<span class="c-prompt">$</span> structmd big.pdf -o big.md            <span class="c"># instant — served from cache</span>
-<span class="c-prompt">$</span> structmd big.pdf -o big.md --force    <span class="c"># bypass and refresh the cache</span></pre></div>
-
-      <h2 id="batch">Batch processing</h2>
-      <p>Point the CLI at a directory (or pass many files) and structmd walks the tree for supported formats:</p>
-      <div class="codebox"><pre><span class="c-prompt">$</span> structmd batch ./contracts/ -o ./markdown/ --workers <span class="n">4</span> --pages <span class="n">1</span></pre></div>
-      <ul>
-        <li>An async worker pool drives conversions concurrently; progress renders as a live bar.</li>
-        <li>A failure on one file is logged and isolated — the batch continues.</li>
-        <li>Outputs are written as <code class="inline-code">&lt;stem&gt;.md</code> into the output directory.</li>
-        <li>Cached files complete instantly, making re-runs cheap and resumable.</li>
-      </ul>
-
-      <h2 id="two-stage">The two-stage workflow</h2>
-      <p>structmd deliberately forbids the VLM from writing Markdown directly. Instead:</p>
-      <ol>
-        <li><strong>Stage 1 (model):</strong> each rendered page image is described as typed, positioned JSON elements.</li>
-        <li><strong>Artifact:</strong> the JSON is saved and cached — inspectable, diffable, hand-editable.</li>
-        <li><strong>Stage 2 (rules):</strong> a deterministic builder resolves columns, merges cross-page paragraphs,
-            normalizes headings and emits Markdown. Identical JSON always yields identical bytes.</li>
-      </ol>
-      <p>This gives you reproducibility for CI, a debugging surface when a model misreads a page, and the freedom
-         to swap models without touching your output logic.</p>
-
+      <!-- =========================================================== -->
       <h2 id="json-artifact">Extraction JSON format</h2>
+      <p>The Stage-1 artifact is a faithful serialization of the data model — this exact shape is what
+         <code class="inline-code">--json</code> writes, what the cache stores, and what <code class="inline-code">--from-json</code> accepts:</p>
       <div class="codebox"><pre>{
-  <span class="f">"schema_version"</span>: <span class="n">1</span>,
-  <span class="f">"source"</span>: { <span class="f">"path"</span>: <span class="s">"report.pdf"</span>, <span class="f">"pages"</span>: <span class="n">12</span> },
+  <span class="f">"document_id"</span>: <span class="s">"612aefcb65144afb8ad05d6317d945e"</span>,
+  <span class="f">"source_path"</span>: <span class="s">"papers/report.pdf"</span>,
+  <span class="f">"page_count"</span>: <span class="n">1</span>,
   <span class="f">"pages"</span>: [
     {
       <span class="f">"page_number"</span>: <span class="n">1</span>,
+      <span class="f">"width"</span>: <span class="n">1275.0</span>,                <span class="c">// rendered pixels at extraction DPI</span>
+      <span class="f">"height"</span>: <span class="n">1650.0</span>,
       <span class="f">"elements"</span>: [
         {
-          <span class="f">"type"</span>: <span class="s">"heading"</span>,          <span class="c">// heading|paragraph|list_item|table|</span>
-          <span class="c">//                            image|code_block|blockquote|horizontal_rule</span>
-          <span class="f">"content"</span>: <span class="s">"Introduction"</span>,
-          <span class="f">"level"</span>: <span class="n">1</span>,                 <span class="c">// heading depth</span>
-          <span class="f">"bbox"</span>: [<span class="n">72.0</span>, <span class="n">95.4</span>, <span class="n">540.1</span>, <span class="n">118.2</span>],
-          <span class="f">"confidence"</span>: <span class="n">0.97</span>
+          <span class="f">"id"</span>: <span class="s">"elem_6b35b70785e6"</span>,
+          <span class="f">"type"</span>: <span class="s">"heading"</span>,           <span class="c">// see ElementType list above</span>
+          <span class="f">"bbox"</span>: {<span class="f">"x1"</span>: <span class="n">70.0</span>, <span class="f">"y1"</span>: <span class="n">80.0</span>, <span class="f">"x2"</span>: <span class="n">400.0</span>, <span class="f">"y2"</span>: <span class="n">110.0</span>},
+          <span class="f">"text"</span>: <span class="s">"Introduction"</span>,
+          <span class="f">"page_number"</span>: <span class="n">1</span>,
+          <span class="f">"confidence"</span>: <span class="n">1.0</span>,
+          <span class="f">"metadata"</span>: {},
+          <span class="f">"heading_level"</span>: <span class="n">1</span>,
+          <span class="f">"list_type"</span>: <span class="kc">null</span>,
+          <span class="f">"indent_level"</span>: <span class="n">0</span>,
+          <span class="f">"continues_on_next_page"</span>: <span class="kc">false</span>,
+          <span class="f">"table_data"</span>: <span class="kc">null</span>
         }
       ]
     }
-  ]
+  ],
+  <span class="f">"metadata"</span>: {<span class="f">"extractor"</span>: <span class="s">"ollama"</span>, <span class="f">"model"</span>: <span class="s">"gemma4:cloud"</span>, <span class="f">"dpi"</span>: <span class="n">150</span>}
 }</pre></div>
-      <p>Edit anything — fix a typo, promote a paragraph to a heading, reorder list items — then rebuild with
+      <p>Edit anything — fix a typo, promote a paragraph to a heading, correct a table cell — then rebuild with
          <code class="inline-code">--from-json</code>. The builder trusts the JSON completely.</p>
 
+      <!-- =========================================================== -->
       <h2 id="troubleshooting">Troubleshooting</h2>
       <div class="tablewrap">
         <table class="tbl">
           <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
           <tbody>
             <tr><td><code class="inline-code">ModelNotFoundError</code></td><td>Run <code class="inline-code">ollama pull &lt;tag&gt;</code>; for cloud models append <code class="inline-code">:cloud</code>.</td></tr>
-            <tr><td><code class="inline-code">OllamaConnectionError</code></td><td>Is the daemon up? Try <code class="inline-code">ollama list</code>; check <code class="inline-code">--base-url</code>.</td></tr>
+            <tr><td><code class="inline-code">OllamaConnectionError</code></td><td>Is the daemon up? Try <code class="inline-code">ollama list</code>; check <code class="inline-code">--url</code>.</td></tr>
             <tr><td>Timeouts per page</td><td>Raise <code class="inline-code">STRUCTMD_OLLAMA_TIMEOUT</code>; large pages on CPU-bound models need more time.</td></tr>
             <tr><td>Office conversion fails</td><td>Install LibreOffice (<code class="inline-code">soffice</code> must be on <code class="inline-code">PATH</code>).</td></tr>
             <tr><td>Wrong reading order</td><td>Inspect the JSON bbox values; adjust then rebuild with <code class="inline-code">--from-json</code>.</td></tr>
-            <tr><td>Stale output after editing a file</td><td>Cache keys include content hash — if you truly need a re-run, use <code class="inline-code">--force</code>.</td></tr>
+            <tr><td>A figure link shows <code class="inline-code">image_placeholder</code></td><td>The VLM bbox missed or the crop was blank-guarded; re-extract that page with <code class="inline-code">--pages N --force</code>.</td></tr>
+            <tr><td>Re-run is slow although nothing changed</td><td>Make sure caching isn't disabled (<code class="inline-code">--no-cache</code> / <code class="inline-code">cache_enabled: false</code>).</td></tr>
           </tbody>
         </table>
       </div>
@@ -332,7 +640,7 @@ extracted.<span class="f">save_json</span>(<span class="s">"report.extraction.js
         </div>
         <div class="foot-col">
           <h4>Documentation</h4>
-          <a href="docs.html#installation">Installation</a>
+          <a href="docs.html#folder-of-pdfs">Folder of PDFs guide</a>
           <a href="docs.html#python-api">Python API</a>
           <a href="docs.html#cli-reference">CLI reference</a>
           <a href="docs.html#configuration">Configuration</a>

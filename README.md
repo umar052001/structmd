@@ -6,7 +6,7 @@
 [![Docs](https://img.shields.io/badge/docs-github.io-00b3e6)](https://umar052001.github.io/structmd/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-ff4f9a)](LICENSE)
 
-**Convert PDFs, Office documents, and images into structured Markdown using small Vision-Language Models served by [Ollama](https://ollama.com).**
+**Convert PDFs, Office documents, and images into structured Markdown using Vision-Language Models served by [Ollama](https://ollama.com) — local or cloud.**
 
 structmd is built around a strict two-stage architecture:
 
@@ -20,13 +20,13 @@ structmd is built around a strict two-stage architecture:
 └─────────────────────────────┘      └──────────────────────────────────┘
 ```
 
-**JSON is the single source of truth.** The VLM never writes Markdown directly. It produces an inspectable, editable, cacheable JSON description of the document layout; a deterministic builder ("the cutter") turns that JSON into Markdown. Same JSON in → identical Markdown out, every time.
+**JSON is the single source of truth.** The VLM never writes Markdown directly. It produces an inspectable, editable, cacheable JSON description of the document layout; a deterministic builder turns that JSON into Markdown. Same JSON in → identical Markdown out, every time.
 
 ## Why this architecture?
 
 - **Small-model friendly.** 2B–3B VLMs are bad at writing clean Markdown but decent at describing layout as JSON. structmd plays to that strength.
 - **Debuggable.** Bad conversion? Open the JSON and see exactly what the model saw. Fix it by hand and rebuild without re-running inference.
-- **Cheap to iterate.** Extraction is cached by file hash + mtime. Re-tune Markdown output (heading levels, table captions, column handling) instantly from cached JSON.
+- **Cheap to iterate.** Extraction is cached by file hash + mtime — including *per page*. Re-tune Markdown output (heading levels, table captions, column handling) instantly from cached JSON.
 - **Deterministic output.** The builder is pure code: no sampling, no randomness, no hidden state.
 
 ## Installation
@@ -42,9 +42,12 @@ pip install "structmd[pdf]"
 ```
 
 Extras:
-- `[pdf]` — PyMuPDF for PDF rendering
-- `[office]` — PyMuPDF (Office docs go through LibreOffice → PDF)
-- `[all]` — everything above
+
+| Extra | Installs | Needed for |
+|---|---|---|
+| `[pdf]` | PyMuPDF | PDF rendering (also powers figure extraction) |
+| `[office]` | PyMuPDF | Office documents (converted through LibreOffice → PDF) |
+| `[all]` | everything above | one-stop install |
 
 Office documents additionally require **LibreOffice** (`soffice`) on your PATH:
 
@@ -57,10 +60,9 @@ brew install --cask libreoffice     # macOS
 
 structmd works with **both local and cloud models** — the same API, the same code path.
 
-### Local (on-prem) models
+### Local models
 
 ```bash
-# install ollama, then pull a small vision model:
 ollama pull qwen2-vl:2b          # ~1.6 GB, good default
 # alternatives:
 ollama pull smolvlm              # very light
@@ -69,7 +71,7 @@ ollama pull llama3.2-vision      # larger, stronger
 
 ### Cloud models (no GPU needed)
 
-Ollama can transparently offload larger vision models to [ollama.com](https://ollama.com) while your tooling keeps talking to `localhost:11434`. Sign in once, pull the cloud tag, and use it like any local model:
+Ollama can transparently offload larger vision models to [ollama.com](https://ollama.com) while your tooling keeps talking to `localhost:11434`:
 
 ```bash
 ollama signin                    # one-time account link
@@ -78,13 +80,13 @@ ollama pull gemma4:cloud         # registers the cloud model (no big download)
 structmd scan.pdf --model gemma4:cloud -o output.md
 ```
 
-Cloud vision models currently include `gemma4:cloud`, `qwen3.5:*-cloud`, `kimi-k2.6:cloud`, and friends — see the [cloud catalog](https://ollama.com/search?c=cloud). Notes:
+Notes:
 
-- **Throughput**: cloud models are typically much faster than CPU-bound local inference (a 3-page PDF took ~18s via `gemma4:cloud` vs >120s/page locally on CPU).
-- **Timeouts**: large frontier models can take longer per page; raise the budget with `--timeout`-style config (`STRUCTMD_OLLAMA_TIMEOUT=300`) or the YAML key `ollama.timeout`.
+- **Throughput**: cloud models are typically much faster than CPU-bound local inference. In our benchmarks, five arXiv papers (77 pages) converted in ~13 minutes with `gemma4:cloud` at 3 workers (~10 s/page effective).
+- **Timeouts**: large frontier models can take longer per page; raise the budget with `STRUCTMD_OLLAMA_TIMEOUT=300` or the YAML key `ollama.timeout`.
 - **Privacy**: pages are sent to Ollama's cloud service. For sensitive documents, stick to local models — structmd treats both identically.
 
-Verify whatever endpoint you use is up:
+Verify your endpoint is up:
 
 ```bash
 curl http://localhost:11434/api/tags
@@ -112,6 +114,9 @@ structmd --from-json extraction.json -o output.md
 # batch: many documents through one async worker pool
 structmd batch doc1.pdf doc2.docx doc3.png -o output_dir/
 
+# whole directories work too (walked recursively)
+structmd batch ./papers/ -o output_dir/
+
 # page selection (1-indexed, ranges allowed)
 structmd input.pdf --pages 1,3,5-10 -o output.md
 
@@ -122,40 +127,98 @@ structmd input.pdf --save-assets -o output.md   # -> ./figures/*.png
 structmd --config ~/.structmd.yaml input.pdf -o out.md
 ```
 
-### Python API
+### Python
 
 ```python
 from structmd import StructMDPipeline
 
-pipeline = StructMDPipeline()
+with StructMDPipeline() as pipeline:
+    result = pipeline.process(
+        "document.pdf",
+        output_json="extraction.json",   # optional: keep Stage 1 output
+        output_md="output.md",           # optional: write final Markdown
+    )
 
-result = pipeline.process(
-    "document.pdf",
-    output_json="extraction.json",   # optional: keep Stage 1 output
-    output_md="output.md",           # optional: write final Markdown
+print(result.title)                      # extracted from the first heading
+print(result.content[:200])              # the Markdown itself
+print(result.metadata["page_count"])     # 12
+```
+
+## Guide: convert a folder full of PDFs
+
+The most common request. A complete, runnable script:
+
+```python
+"""Convert every PDF in a folder (recursively) to Markdown."""
+from pathlib import Path
+
+from structmd import StructMDPipeline
+from structmd.config import StructMDConfig
+
+# 1. Configure once — these settings apply to every document.
+config = StructMDConfig(
+    ollama_model="gemma4:cloud",   # or a local tag, e.g. "qwen2-vl:2b"
+    ollama_max_workers=3,          # pages processed concurrently
+    save_assets=True,              # crop figures out as PNGs
 )
 
-print(result.title)                          # extracted from first heading
-print(result.metadata["page_count"])         # 12
+# 2. Collect inputs. rglob walks subfolders; use glob for top-level only.
+pdfs = sorted(Path("papers").rglob("*.pdf"))
+print(f"Found {len(pdfs)} PDFs")
+
+# 3. Run. All pages of all documents share one async worker pool,
+#    and finished pages are cached individually.
+with StructMDPipeline(config) as pipeline:
+    documents = pipeline.process_batch(
+        [str(p) for p in pdfs],
+        output_dir="markdown",     # anchors figure assets at markdown/figures/
+    )
+
+# 4. Write the Markdown files.
+for doc in documents:
+    stem = Path(doc.metadata["source_path"]).stem
+    target = Path("markdown") / f"{stem}.md"
+    doc.save(str(target))
+    print(f"{target}  ({doc.metadata['page_count']} pages)")
+```
+
+What each import gives you:
+
+| Import | Why |
+|---|---|
+| `pathlib.Path` | stdlib — walking the folder and building output paths |
+| `structmd.StructMDPipeline` | the orchestrator: converters + extractor + builder + cache |
+| `structmd.config.StructMDConfig` | typed configuration dataclass; every CLI/env option is a field |
+
+Behavior you get for free:
+
+- **Parallelism** — all pages from all PDFs flow through one worker pool (`ollama_max_workers`), not one PDF at a time.
+- **Resumability** — each extracted page is cached under `~/.cache/structmd`. Interrupted a 500-page run at page 200? Re-run it; only pages 201+ hit the model.
+- **Failure isolation** — one corrupt PDF logs an error and is skipped; the rest of the batch completes.
+- **Mixed inputs** — pass `.docx`, `.pptx`, images, anything supported; they ride the same pool.
+
+CLI equivalent:
+
+```bash
+structmd batch ./papers/ -o markdown/ --save-assets
 ```
 
 ## The two-stage workflow
 
-This is where structmd's design pays off. Extract once, then iterate on the Markdown forever:
+Extract once, then iterate on the Markdown forever:
 
 ```python
 from structmd import StructMDPipeline
 
-pipeline = StructMDPipeline()
+with StructMDPipeline() as pipeline:
+    # Stage 1 only: VLM runs here (slow, cached afterwards)
+    doc = pipeline.extract_only("report.pdf", output_json="report.json")
 
-# Stage 1 only: VLM runs here (slow, cached afterwards)
-doc = pipeline.extract_only("report.pdf", output_json="report.json")
+    # ... inspect / hand-edit report.json ...
+    # e.g. fix a heading level, correct a table cell, drop a stray footer.
 
-# ... inspect / hand-edit report.json ...
-# e.g. fix a heading level, correct a table cell, drop a stray footer.
-
-# Stage 2 only: deterministic rebuild (instant, no VLM)
-md = pipeline.build_from_json("report.json", output_md="report.md")
+    # Stage 2 only: deterministic rebuild (instant, no VLM)
+    md = pipeline.build_from_json("report.json", output_md="report.md")
 ```
 
 Or from the shell:
@@ -166,25 +229,146 @@ vim report.json                                       # fix the JSON
 structmd --from-json report.json -o report.md         # instant rebuild
 ```
 
-## Supported inputs & models
+## Figure extraction
 
-| Input | How | Notes |
-|---|---|---|
-| `.pdf` | PyMuPDF rendering at configurable DPI | page selection supported |
-| `.docx .pptx .xlsx .odt .ods .odp .doc .ppt .xls` | LibreOffice headless → PDF | requires `soffice` |
-| `.png .jpg .jpeg .tiff .bmp .webp` | direct passthrough | single page |
+Set `save_assets=True` (or pass `--save-assets`) and every region the VLM flagged as an image is clip-rendered from the source PDF at `assets_dpi` (default 200) into `<output_dir>/figures/`. The Markdown links the real files:
 
-| Model family | Prompt template | Notes |
+```markdown
+![Diagram of the Vision Transformer architecture](figures/2010.11929_p03_1.png)
+```
+
+Design notes:
+
+- **Clip-rendering, not object extraction** — captures vector graphics and text labels, which is what most academic figures actually are.
+- **Blank-crop guard** — VLM boxes that land on empty space are detected and dropped instead of producing broken images.
+- **PDF-only for now** — Office/image inputs skip asset extraction gracefully.
+
+For standalone use (e.g. attaching assets to a cached extraction):
+
+```python
+from structmd import attach_assets
+
+attach_assets("paper.pdf", extracted_document, "output/report.md", dpi=200)
+# -> writes output/figures/*.png and annotates the document's elements
+```
+
+## Batch processing
+
+All pages of all documents flow through one shared `asyncio` worker pool:
+
+```python
+import asyncio
+from pathlib import Path
+
+from structmd import StructMDPipeline
+
+async def main():
+    with StructMDPipeline() as pipeline:
+        docs = await pipeline.process_batch_async(
+            [str(p) for p in Path("papers").glob("*.pdf")]
+        )
+        for d in docs:
+            print(d.metadata["source_path"], d.metadata["page_count"], "pages")
+
+asyncio.run(main())
+```
+
+`process_batch(...)` is the synchronous twin — safe to call from scripts *and* inside Jupyter (it detects a running event loop and delegates to a helper thread).
+
+Need progress visibility? Drop to `BatchProcessor` for callbacks:
+
+```python
+import asyncio
+from structmd import BatchProcessor, OllamaExtractor
+from structmd.config import StructMDConfig
+
+config = StructMDConfig(ollama_model="gemma4:cloud")
+
+def on_doc(doc_id, document):
+    print(f"done: {document.source_path} ({document.page_count} pages)")
+
+async def main():
+    processor = BatchProcessor(
+        OllamaExtractor(config),
+        max_workers=config.ollama_max_workers,
+        cache=None,                     # pass a CacheManager to enable caching
+    )
+    documents = await processor.process_batch(
+        ["a.pdf", "b.pdf"],
+        on_doc_complete=on_doc,         # also: on_page_complete(doc_id, n, page)
+    )
+
+asyncio.run(main())
+```
+
+A tqdm progress bar renders out of the box; failures on one file or page are logged and isolated.
+
+## API reference
+
+Everything below is importable from the package root: `from structmd import …`.
+
+### `StructMDPipeline(config=None)`
+
+The high-level facade. Manages converters, extractor, builder, and cache. Supports use as a context manager (`with StructMDPipeline() as p:`) which releases HTTP resources on exit.
+
+| Method | Returns | Description |
 |---|---|---|
-| Qwen2-VL / Qwen2.5-VL / Qwen3-VL | `qwen2-vl` | recommended local default (`qwen2-vl:2b`) |
-| SmolVLM | `smolvlm` | tuned for short outputs |
-| PaliGemma | `paligemma` | terse prompt style |
-| Llama 3.2 Vision | `llama3.2-vision` | system-style instructions |
-| anything else (incl. `gemma4`, `qwen3.5`, `:cloud` tags) | `default` | generic JSON contract; verified with `gemma4:cloud` and `gemma4:31b` locally |
+| `process(input_path, output_json=None, output_md=None, pages=None, force=False)` | `MarkdownDocument` | Full pipeline: convert → extract → build. Writes files when paths given. |
+| `extract_only(input_path, output_json=None, pages=None, force=False)` | `ExtractedDocument` | Stage 1 only. Page-level cached. |
+| `build_from_json(json_path, output_md=None)` | `MarkdownDocument` | Stage 2 only. No VLM, no source file needed. |
+| `process_batch(paths, pages=None, force=False, output_dir=None)` | `list[MarkdownDocument]` | Sync batch over a shared worker pool. |
+| `process_batch_async(...)` | same | Async variant for running event loops. |
+
+`pages` is a list of 1-indexed page numbers, e.g. `[1, 3, 5, 6, 7]`. Selected pages keep their true numbers throughout extraction and caching.
+
+### `MarkdownDocument`
+
+| Field | Type | Description |
+|---|---|---|
+| `title` | `str \| None` | Document title (first H1 candidate). |
+| `content` | `str` | The final Markdown. |
+| `metadata` | `dict` | Includes `source_path`, `page_count`, `model`, `dpi`. |
+
+`.save(path)` writes the file (prepends `# title` when appropriate) and returns the `Path`.
+
+### `ExtractedDocument` / `ExtractedPage` / `DocumentElement`
+
+The Stage 1 JSON model. `ExtractedDocument` holds `pages: list[ExtractedPage]`, each holding `elements: list[DocumentElement]`. Every element carries:
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `ElementType` | `heading`, `paragraph`, `table`, `list_item`, `caption`, `image`, `code_block`, `blockquote`, `footnote`, `header`, `footer`, `page_number`, `horizontal_rule` |
+| `text` | `str` | Element content (for tables see `table_data`). |
+| `bbox` | `BoundingBox \| None` | Pixel coordinates on the rendered page, top-left origin. |
+| `page_number` | `int` | True 1-indexed page number. |
+| `table_data` | `list[list[str]] \| None` | Rows for `table` elements. |
+| `heading_level` | `int \| None` | Depth for `heading` elements. |
+| `confidence` | `float` | VLM self-reported confidence. |
+| `metadata` | `dict` | Extensible — figure assets record `asset_path` here. |
+
+All three serialize cleanly: `.to_dict()` / `.from_dict()` / `.to_json()` / `.from_json()`, plus `ExtractedDocument.save_json(path)`.
+
+### `BatchProcessor(extractor, max_workers=4, dpi=150, converters=None, cache=None, force=False)`
+
+Lower-level async engine used by the pipeline. `await process_batch(paths, on_page_complete=None, on_doc_complete=None, pages=None)` returns `list[ExtractedDocument]`. Callbacks receive `(doc_id, document)` / `(doc_id, page_number, page)`.
+
+### `AssetExtractor(dpi=200)` / `attach_assets(...)`
+
+Figure cropping (see [Figure extraction](#figure-extraction)). `extract_assets(source_path, document, output_dir, dirname="figures")` returns the list of written relative paths and annotates image elements in place.
+
+### `CacheManager(cache_dir="~/.cache/structmd")`
+
+Content-addressed JSON cache. Keys are `sha256(abs_path + mtime_ns + size)`: modifying a file invalidates its entries automatically; moving it simply starts a fresh entry. Document-level (`load`/`save`) and page-level (`load_page`/`save_page`) APIs, atomic writes, `invalidate(file_path)` for explicit eviction.
+
+### Exceptions
+
+All derive from `structmd.core.StructMDError`: `OllamaConnectionError`, `ModelNotFoundError`, `ConversionError`, `CacheError`.
 
 ## Configuration
 
-Precedence (highest wins): **env vars → `./.structmd.yaml` → `~/.config/structmd/config.yaml` → defaults → CLI flags** (CLI flags always win at runtime).
+Precedence (highest wins): **CLI flags → env vars → `./.structmd.yaml` → `~/.config/structmd/config.yaml` → defaults**.
+
+Every field of `StructMDConfig` is settable in all four places. The YAML file accepts nested sections or flat keys:
 
 ```yaml
 # .structmd.yaml
@@ -192,7 +376,7 @@ ollama:
   url: "http://localhost:11434"
   model: "qwen2-vl:2b"
   timeout: 120          # seconds per chat call
-  max_workers: 4        # async workers for batch processing
+  max_workers: 4        # concurrent page extractions
 
 processing:
   dpi: 150
@@ -207,53 +391,78 @@ output:
 
 cache:
   dir: "~/.cache/structmd"
+
+# flat keys work too, e.g.:
+# cache_enabled: true
+# save_assets: true
+# assets_dirname: "figures"
+# assets_dpi: 200
 ```
 
-Every key can also be set via environment variables: `STRUCTMD_OLLAMA_URL`, `STRUCTMD_OLLAMA_MODEL`, `STRUCTMD_DPI`, `STRUCTMD_CACHE_DIR`, `STRUCTMD_VERBOSE`, …
+| Field | Default | Env var |
+|---|---|---|
+| `ollama_url` | `http://localhost:11434` | `STRUCTMD_OLLAMA_URL` |
+| `ollama_model` | `qwen2-vl:2b` | `STRUCTMD_OLLAMA_MODEL` |
+| `ollama_timeout` | `120` | `STRUCTMD_OLLAMA_TIMEOUT` |
+| `ollama_max_workers` | `4` | `STRUCTMD_OLLAMA_MAX_WORKERS` |
+| `dpi` | `150` | `STRUCTMD_DPI` |
+| `include_page_numbers` | `True` | `STRUCTMD_INCLUDE_PAGE_NUMBERS` |
+| `merge_continued_paragraphs` | `True` | `STRUCTMD_MERGE_CONTINUED_PARAGRAPHS` |
+| `detect_columns` | `True` | `STRUCTMD_DETECT_COLUMNS` |
+| `normalize_headings` | `True` | `STRUCTMD_NORMALIZE_HEADINGS` |
+| `table_caption_position` | `before` | `STRUCTMD_TABLE_CAPTION_POSITION` |
+| `cache_dir` | `~/.cache/structmd` | `STRUCTMD_CACHE_DIR` |
+| `cache_enabled` | `True` | `STRUCTMD_CACHE_ENABLED` |
+| `save_assets` | `False` | `STRUCTMD_SAVE_ASSETS` |
+| `assets_dirname` | `figures` | `STRUCTMD_ASSETS_DIRNAME` |
+| `assets_dpi` | `200` | `STRUCTMD_ASSETS_DPI` |
+| `verbose` | `False` | `STRUCTMD_VERBOSE` |
 
 See [`.structmd.yaml.example`](.structmd.yaml.example) for a ready-to-copy template.
 
 ## Caching
 
-Extraction results are cached under `~/.cache/structmd` keyed by `sha256(path + mtime + size)`:
+Extraction results live under `~/.cache/structmd`, keyed by `sha256(path + mtime + size)`:
 
-- Move the file → cache still valid.
 - Modify the file → automatic miss.
-- Page-level entries (`{hash}_page{N}.json`) support partial reuse.
+- Move or copy the file → the new path starts with a fresh entry on first run.
+- **Page-level entries** (`{hash}_page{N}.json`) support partial reuse: re-running a 20-page paper after adding one paragraph re-pays for exactly one page.
 
-Force a fresh run with `structmd` after touching the file, or clear the cache directory.
+Measured on our benchmark: a 77-page, 5-paper run took **12m37s cold and 3.0s warm**.
 
-## Figure extraction
+Force a fresh run with `--force` / `force=True` (re-extracts and refreshes entries), or disable reads entirely with `--no-cache` / `cache_enabled=False`.
 
-Pass `--save-assets` (or set `save_assets: true` in config) and every region the
-VLM flagged as an image is clip-rendered from the source PDF at `assets_dpi`
-(default 200) into `<output_dir>/figures/`. The Markdown links the real files:
+## Supported inputs & models
 
-```markdown
-![Diagram of the Vision Transformer architecture](figures/2010.11929_p03_1.png)
-```
+| Input | How | Notes |
+|---|---|---|
+| `.pdf` | PyMuPDF rendering at configurable DPI | page selection + figure extraction supported |
+| `.docx .pptx .xlsx .odt .ods .odp .doc .ppt .xls` | LibreOffice headless → PDF | requires `soffice` |
+| `.png .jpg .jpeg .tiff .bmp .webp` | direct passthrough | single page |
 
-Clip-rendering captures vector graphics and labels, not just embedded rasters.
-Blank crops (VLM boxes that landed on empty space) are dropped automatically.
+| Model family | Prompt template | Notes |
+|---|---|---|
+| Qwen2-VL / Qwen2.5-VL / Qwen3-VL | `qwen2-vl` | recommended local default (`qwen2-vl:2b`) |
+| SmolVLM | `smolvlm` | tuned for short outputs |
+| PaliGemma | `paligemma` | terse prompt style |
+| Llama 3.2 Vision | `llama3.2-vision` | system-style instructions |
+| anything else (incl. `gemma4`, `qwen3.5`, `:cloud` tags) | `default` | generic JSON contract; verified with `gemma4:cloud` and `gemma4:31b` locally |
 
-## Batch processing
+## How it compares
 
-All pages of all documents flow through one shared `asyncio` worker pool:
+| | structmd | MinerU | Marker | py-zerox | LlamaParse |
+|---|---|---|---|---|---|
+| Runs fully local | ✅ | ✅ | ✅ | ✅ | ❌ (cloud API) |
+| Backend | any Ollama VLM (2B+) | custom OCR + layout models | Surya OCR + LLM optional | GPT-4o(-mini) via LiteLLM | proprietary |
+| GPU required | ❌ (CPU-friendly small models) | recommended | recommended | ❌ (API) | ❌ |
+| Intermediate format | editable JSON | MD/JSON | MD/JSON/HTML | MD | MD/JSON |
+| Deterministic builder stage | ✅ | partial | partial | ❌ | ❌ |
+| Per-page caching & resume | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Cost | free | free | free | API tokens | paid |
+| Office documents | ✅ via LibreOffice | ❌ | ❌ | ❌ | limited |
+| Multi-column heuristics | ✅ coordinate-based | ✅ ML | ✅ ML | ❌ | ✅ |
 
-```python
-import asyncio
-from structmd import StructMDPipeline
-
-async def main():
-    pipeline = StructMDPipeline()
-    docs = await pipeline.process_batch_async(["a.pdf", "b.docx", "c.png"])
-    for d in docs:
-        print(d.title, d.metadata["page_count"])
-
-asyncio.run(main())
-```
-
-Callbacks are available on the lower-level `BatchProcessor` (`on_page_complete`, `on_doc_complete`), with tqdm progress out of the box.
+Pick structmd when you want **local, cheap, auditable** conversion with small models — and when being able to hand-fix the intermediate JSON matters more than squeezing out state-of-the-art accuracy on gnarly scans.
 
 ## Docker usage
 
@@ -284,25 +493,10 @@ docker run -d --name ollama -v ollama:/root/.ollama -p 11434:11434 ollama/ollama
 docker exec ollama ollama pull qwen2-vl:2b
 ```
 
-## How it compares
-
-| | structmd | MinerU | Marker | py-zerox | LlamaParse |
-|---|---|---|---|---|---|
-| Runs fully local | ✅ | ✅ | ✅ | ✅ | ❌ (cloud API) |
-| Backend | any Ollama VLM (2B+) | custom OCR + layout models | Surya OCR + LLM optional | GPT-4o(-mini) via LiteLLM | proprietary |
-| GPU required | ❌ (CPU-friendly small models) | recommended | recommended | ❌ (API) | ❌ |
-| Intermediate format | editable JSON | MD/JSON | MD/JSON/HTML | MD | MD/JSON |
-| Deterministic builder stage | ✅ | partial | partial | ❌ | ❌ |
-| Cost | free | free | free | API tokens | paid |
-| Office documents | ✅ via LibreOffice | ❌ | ❌ | ❌ | limited |
-| Multi-column heuristics | ✅ coordinate-based | ✅ ML | ✅ ML | ❌ | ✅ |
-
-Pick structmd when you want **local, cheap, auditable** conversion with small models — and when being able to hand-fix the intermediate JSON matters more than squeezing out state-of-the-art accuracy on gnarly scans.
-
 ## Development
 
 ```bash
-git clone <repo> && cd structmd
+git clone https://github.com/umar052001/structmd && cd structmd
 uv sync --extra dev --extra all
 uv run pytest                 # full suite (offline; HTTP mocked)
 uv run black . && uv run ruff check .
@@ -316,6 +510,7 @@ structmd/
 ├── core.py           # data models: DocumentElement, BoundingBox, ExtractedDocument…
 ├── config.py         # layered YAML/env configuration
 ├── pipeline.py       # orchestrator
+├── assets.py         # figure crop extraction
 ├── cli.py            # Click CLI
 ├── extractors/       # Stage 1: BaseExtractor, OllamaExtractor
 ├── builders/         # Stage 2: deterministic MarkdownBuilder

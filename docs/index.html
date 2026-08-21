@@ -241,15 +241,18 @@
           </div>
 
           <div class="panel" data-panel-group="qs" data-panel="python">
-            <pre id="code-python"><span class="k">from</span> <span class="p">structmd</span> <span class="k">import</span> <span class="p">StructMDPipeline</span>
+            <pre id="code-python"><span class="k">from</span> <span class="p">pathlib</span> <span class="k">import</span> <span class="p">Path</span>
+<span class="k">from</span> <span class="p">structmd</span> <span class="k">import</span> <span class="p">StructMDPipeline, StructMDConfig</span>
 
-<span class="k">with</span> <span class="f">StructMDPipeline</span>(model=<span class="s">"qwen3.5-vl"</span>) <span class="k">as</span> <span class="p">pipeline:</span>
-    <span class="p">doc = pipeline.</span><span class="f">process</span>(<span class="s">"report.pdf"</span>, output_path=<span class="s">"report.md"</span>)
-    <span class="f">print</span>(doc.markdown[:<span class="n">200</span>])
+<span class="p">config =</span> <span class="f">StructMDConfig</span>(ollama_model=<span class="s">"gemma4:cloud"</span>, save_assets=<span class="kc">True</span>)
 
-<span class="c"># need just the JSON artifact?</span>
-<span class="p">extracted = pipeline.</span><span class="f">extract_only</span>(<span class="s">"report.pdf"</span>)
-extracted.<span class="f">save_json</span>(<span class="s">"report.extraction.json"</span>)</pre>
+<span class="k">with</span> <span class="f">StructMDPipeline</span>(config) <span class="k">as</span> <span class="p">pipeline:</span>
+    <span class="p">doc = pipeline.</span><span class="f">process</span>(<span class="s">"report.pdf"</span>, output_md=<span class="s">"report.md"</span>,
+                          output_json=<span class="s">"report.json"</span>)
+    <span class="f">print</span>(doc.content[:<span class="n">200</span>])
+
+<span class="c"># batch: a whole folder of PDFs through one worker pool</span>
+<span class="p">docs = pipeline.</span><span class="f">process_batch</span>([<span class="f">str</span>(p) <span class="k">for</span> p <span class="k">in</span> <span class="f">Path</span>(<span class="s">"papers"</span>).<span class="f">glob</span>(<span class="s">"*.pdf"</span>)])</pre>
             <button class="copy-btn" aria-label="Copy Python example"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
           </div>
 
@@ -264,13 +267,13 @@ extracted.<span class="f">save_json</span>(<span class="s">"report.extraction.js
 
           <div class="panel" data-panel-group="qs" data-panel="rebuild">
             <pre id="code-rebuild"><span class="c">&lt;# 1. extract once&gt;</span>
-<span class="c-prompt">$</span> structmd paper.pdf --extract-only -o paper.extraction.json
+<span class="c-prompt">$</span> structmd paper.pdf --json paper.json -o paper.md
 
 <span class="c">&lt;# 2. fix anything you dislike in the JSON …&gt;</span>
-<span class="c-prompt">$</span> $EDITOR paper.extraction.json
+<span class="c-prompt">$</span> $EDITOR paper.json
 
 <span class="c">&lt;# 3. rebuild deterministically — the VLM never runs again&gt;</span>
-<span class="c-prompt">$</span> structmd paper.pdf --from-json -o paper.md</pre>
+<span class="c-prompt">$</span> structmd --from-json paper.json -o paper.md</pre>
             <button class="copy-btn" aria-label="Copy rebuild example"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
           </div>
         </div>
