@@ -23,6 +23,7 @@ from typing import List, Optional, Tuple
 
 import click
 
+from structmd.batch.processor import collect_input_files
 from structmd.config import load_config
 from structmd.core import StructMDError
 from structmd.pipeline import StructMDPipeline
@@ -252,9 +253,15 @@ def _run_batch(
     if not paths:
         raise click.ClickException("batch requires at least one input file")
 
-    missing = [p for p in paths if not Path(p).is_file()]
+    files, missing = collect_input_files(paths)
     if missing:
         raise click.ClickException(f"Input files not found: {', '.join(missing)}")
+    if not files:
+        raise click.ClickException(
+            "No convertible files found in: "
+            f"{', '.join(paths)}. Supported: pdf, docx, pptx, xlsx, odt, ods, "
+            "odp, png, jpg, jpeg, webp, tiff, bmp"
+        )
 
     config = load_config(config_path)
     _apply_cli_overrides(config, model, url, workers, dpi, True, True)
@@ -262,7 +269,7 @@ def _run_batch(
 
     try:
         with StructMDPipeline(config) as pipeline:
-            documents = pipeline.process_batch(paths, pages=page_list)
+            documents = pipeline.process_batch(files, pages=page_list)
     except StructMDError as exc:
         raise click.ClickException(str(exc)) from exc
 

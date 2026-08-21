@@ -230,3 +230,68 @@ class TestBatchCommand:
         result = runner.invoke(main, ["batch", str(f), "--pages", "1,3", "-o", str(tmp_path / "o")])
         assert result.exit_code == 0, result.output
         assert seen["pages"] == [1, 3]
+
+    def test_batch_directory_expands_recursively(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch
+    ) -> None:
+        """A directory input must be walked for supported files (README promise)."""
+        from structmd.core import MarkdownDocument
+        from structmd.pipeline import StructMDPipeline
+
+        sub = tmp_path / "papers" / "nested"
+        sub.mkdir(parents=True)
+        pdf_a = tmp_path / "papers" / "a.pdf"
+        img_b = sub / "b.png"
+        junk = sub / "notes.txt"
+        for f in (pdf_a, img_b, junk):
+            f.write_bytes(b"x")
+
+        seen = {"paths": None}
+
+        def fake_process_batch(self, paths, pages=None):
+            seen["paths"] = list(paths)
+            return [MarkdownDocument(metadata={"source_path": p}) for p in paths]
+
+        monkeypatch.setattr(StructMDPipeline, "process_batch", fake_process_batch)
+
+        outdir = tmp_path / "out"
+        result = runner.invoke(main, ["batch", str(tmp_path / "papers"), "-o", str(outdir)])
+        assert result.exit_code == 0, result.output
+        assert sorted(seen["paths"]) == sorted([str(pdf_a), str(img_b)])
+        assert str(junk) not in seen["paths"]
+
+    def test_batch_mixed_files_and_dirs(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch
+    ) -> None:
+        from structmd.core import MarkdownDocument
+        from structmd.pipeline import StructMDPipeline
+
+        d = tmp_path / "d"
+        d.mkdir()
+        in_dir = d / "x.pdf"
+        in_dir.write_bytes(b"x")
+        standalone = tmp_path / "y.pdf"
+        standalone.write_bytes(b"x")
+
+        seen = {"paths": None}
+
+        def fake_process_batch(self, paths, pages=None):
+            seen["paths"] = list(paths)
+            return [MarkdownDocument(metadata={"source_path": p}) for p in paths]
+
+        monkeypatch.setattr(StructMDPipeline, "process_batch", fake_process_batch)
+
+        result = runner.invoke(main, ["batch", str(standalone), str(d), "-o", str(tmp_path / "o")])
+        assert result.exit_code == 0, result.output
+        # explicit file first (input order preserved), directory expansion after
+        assert seen["paths"] == [str(standalone), str(in_dir)]
+
+    def test_batch_directory_without_convertible_files_errors(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        d = tmp_path / "empty"
+        d.mkdir()
+        (d / "readme.txt").write_text("not convertible")
+        result = runner.invoke(main, ["batch", str(d)])
+        assert result.exit_code != 0
+        assert "no convertible files" in result.output.lower()

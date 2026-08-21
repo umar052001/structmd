@@ -11,7 +11,8 @@ import asyncio
 import inspect
 import logging
 import uuid
-from typing import Any, Callable, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from tqdm.asyncio import tqdm as atqdm
 
@@ -26,6 +27,56 @@ logger = logging.getLogger(__name__)
 
 # (doc_id, source_path, page_number, image)
 WorkItem = tuple
+
+
+def collect_input_files(paths: Iterable[str]) -> Tuple[List[str], List[str]]:
+    """Expand a mix of files and directories into a flat list of convertible files.
+
+    Directories are walked recursively; anything whose extension is handled by a
+    built-in converter is included. Unknown extensions inside directories are
+    skipped (debug-logged), while explicitly named paths that do not exist are
+    reported as missing so callers can fail fast.
+
+    Args:
+        paths: File and/or directory paths, in user-supplied order.
+
+    Returns:
+        ``(files, missing)`` — de-duplicated supported files preserving input
+        order, and the paths that could not be found at all.
+    """
+    supported = {
+        ext.lower()
+        for converter in (PDFConverter, OfficeConverter, ImageConverter)
+        for ext in getattr(converter, "_supported_extensions", ())
+    }
+    files: List[str] = []
+    seen: set = set()
+    missing: List[str] = []
+
+    for raw in paths:
+        path = Path(raw).expanduser()
+        if path.is_dir():
+            found = [
+                str(child)
+                for child in sorted(path.rglob("*"))
+                if child.is_file() and child.suffix.lower() in supported
+            ]
+            skipped = sum(1 for child in path.rglob("*") if child.is_file()) - len(found)
+            if skipped:
+                logger.debug("Skipped %d unsupported file(s) under %s", skipped, path)
+            for item in found:
+                if item not in seen:
+                    seen.add(item)
+                    files.append(item)
+        elif path.is_file():
+            item = str(path)
+            if item not in seen:
+                seen.add(item)
+                files.append(item)
+        else:
+            missing.append(raw)
+
+    return files, missing
 
 
 class BatchProcessor:
