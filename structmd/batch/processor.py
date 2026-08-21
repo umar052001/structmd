@@ -16,6 +16,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from tqdm.asyncio import tqdm as atqdm
 
+from structmd.cache.manager import CacheManager
 from structmd.converters.base import BaseConverter, detect_converter
 from structmd.converters.image import ImageConverter
 from structmd.converters.office import OfficeConverter
@@ -88,6 +89,8 @@ class BatchProcessor:
         max_workers: int = 4,
         dpi: int = 150,
         converters: Optional[List[BaseConverter]] = None,
+        cache: Optional[CacheManager] = None,
+        force: bool = False,
     ) -> None:
         self.extractor = extractor
         self.max_workers = max(1, max_workers)
@@ -96,6 +99,8 @@ class BatchProcessor:
             OfficeConverter(dpi=dpi),
             ImageConverter(),
         ]
+        self.cache = cache
+        self.force = force
 
     async def process_batch(
         self,
@@ -125,23 +130,31 @@ class BatchProcessor:
         jobs: Dict[str, Dict[str, Any]] = {}  # doc_id -> {source_path, pages{}}
         queue: asyncio.Queue = asyncio.Queue()
         total_pages = 0
+        precompleted = 0
 
         for path in paths:
             try:
                 converter = detect_converter(path, self.converters)
-                images = await asyncio.to_thread(converter.convert, path, pages)
+                pairs = await asyncio.to_thread(converter.convert, path, pages)
             except Exception as exc:
                 logger.error("Skipping %s: %s", path, exc)
                 continue
             doc_id = uuid.uuid4().hex
             doc_ids[path] = doc_id
             jobs[doc_id] = {"source_path": path, "pages": {}}
-            for page_idx, image in enumerate(images, start=1):
-                queue.put_nowait((doc_id, path, page_idx, image))
+            for page_number, image in pairs:
                 total_pages += 1
+                cached = None
+                if self.cache is not None and not self.force:
+                    cached = self.cache.load_page(path, page_number)
+                if cached is not None:
+                    jobs[doc_id]["pages"][page_number] = cached
+                    precompleted += 1
+                else:
+                    queue.put_nowait((doc_id, path, page_number, image))
 
         # ---- Phase 2: worker pool ---------------------------------------
-        completed = {"count": 0}
+        completed = {"count": precompleted}
 
         async def worker() -> None:
             while True:
@@ -153,6 +166,8 @@ class BatchProcessor:
                     try:
                         page = await self.extractor.extract_page_async(image, page_number)
                         jobs[doc_id]["pages"][page_number] = page
+                        if self.cache is not None:
+                            await asyncio.to_thread(self.cache.save_page, source_path, page)
                         if on_page_complete is not None:
                             await _maybe_await(on_page_complete(doc_id, page_number, page))
                     except Exception as exc:

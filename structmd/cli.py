@@ -113,6 +113,18 @@ def _apply_cli_overrides(config, model, url, workers, dpi, page_numbers, merge) 
     help="Do not merge paragraphs continued across pages.",
 )
 @click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Re-extract even if cached results exist (cache is refreshed).",
+)
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the cache entirely for this run.",
+)
+@click.option(
     "--config", "config_path", type=click.Path(), default=None, help="Path to config YAML."
 )
 @click.option(
@@ -131,6 +143,8 @@ def main(
     pages: Optional[str],
     no_page_numbers: bool,
     no_merge: bool,
+    force: bool,
+    no_cache: bool,
     config_path: Optional[str],
     verbose: bool,
 ) -> None:
@@ -163,6 +177,8 @@ def main(
             config_path,
             verbose,
             pages_spec=pages,
+            force=force,
+            no_cache=no_cache,
         )
         return
 
@@ -180,6 +196,8 @@ def main(
         pages=pages,
         no_page_numbers=no_page_numbers,
         no_merge=no_merge,
+        force=force,
+        no_cache=no_cache,
         config_path=config_path,
     )
 
@@ -198,7 +216,9 @@ def _run_convert(
     pages: Optional[str],
     no_page_numbers: bool,
     no_merge: bool,
-    config_path: Optional[str],
+    force: bool = False,
+    no_cache: bool = False,
+    config_path: Optional[str] = None,
 ) -> None:
     if extra_paths:
         raise click.ClickException(
@@ -208,6 +228,8 @@ def _run_convert(
 
     config = load_config(config_path)
     _apply_cli_overrides(config, model, url, workers, dpi, not no_page_numbers, not no_merge)
+    if no_cache:
+        config.cache_enabled = False
 
     final_md = output_md or output
     page_list: Optional[List[int]] = parse_pages(pages) if pages else None
@@ -227,6 +249,7 @@ def _run_convert(
                     output_json=output_json,
                     output_md=final_md,
                     pages=page_list,
+                    force=force,
                 )
     except StructMDError as exc:
         raise click.ClickException(str(exc)) from exc
@@ -249,6 +272,8 @@ def _run_batch(
     config_path: Optional[str],
     verbose: bool,
     pages_spec: Optional[str] = None,
+    force: bool = False,
+    no_cache: bool = False,
 ) -> None:
     if not paths:
         raise click.ClickException("batch requires at least one input file")
@@ -265,11 +290,13 @@ def _run_batch(
 
     config = load_config(config_path)
     _apply_cli_overrides(config, model, url, workers, dpi, True, True)
+    if no_cache:
+        config.cache_enabled = False
     page_list = parse_pages(pages_spec) if pages_spec else None
 
     try:
         with StructMDPipeline(config) as pipeline:
-            documents = pipeline.process_batch(files, pages=page_list)
+            documents = pipeline.process_batch(files, pages=page_list, force=force)
     except StructMDError as exc:
         raise click.ClickException(str(exc)) from exc
 

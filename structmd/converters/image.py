@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from PIL import Image
 
@@ -21,8 +21,10 @@ class ImageConverter(BaseConverter):
     def supports(self, path: str) -> bool:
         return self._extension(path) in IMAGE_EXTENSIONS
 
-    def convert(self, path: str, pages: Optional[List[int]] = None) -> List[Image.Image]:
-        """Open the image and return it as a one-element RGB list.
+    def convert(
+        self, path: str, pages: Optional[List[int]] = None
+    ) -> List[Tuple[int, Image.Image]]:
+        """Open the image and return it as a single ``(1, image)`` pair.
 
         ``pages`` is accepted for interface compatibility but ignored: an
         image is always exactly one page.
@@ -30,6 +32,6 @@ class ImageConverter(BaseConverter):
         self._require_file(path)
         try:
             with Image.open(path) as img:
-                return [img.convert("RGB")]
+                return [(1, img.convert("RGB"))]
         except OSError as exc:
             raise ConversionError(f"Could not open image {path!r}: {exc}") from exc

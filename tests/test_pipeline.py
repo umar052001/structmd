@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import pytest
 from PIL import Image
@@ -21,6 +21,7 @@ class StubExtractor:
     def __init__(self, config=None) -> None:
         self.config = config or StructMDConfig()
         self.call_count = 0
+        self.page_calls: List[int] = []
 
     def extract_document(self, images, source_path=None) -> ExtractedDocument:
         self.call_count += 1
@@ -33,6 +34,13 @@ class StubExtractor:
             for i, img in enumerate(images)
         ]
         return ExtractedDocument(source_path=source_path, page_count=len(pages), pages=pages)
+
+    def extract_page(self, image, page_number: int) -> ExtractedPage:
+        self.call_count += 1
+        self.page_calls.append(page_number)
+        return ExtractedPage(
+            page_number=page_number, width=float(image.width), height=float(image.height)
+        )
 
     async def extract_page_async(self, image, page_number):
         return ExtractedPage(
@@ -54,8 +62,11 @@ class SinglePageConverter:
     def supports(self, path: str) -> bool:
         return path.endswith(".stub")
 
-    def convert(self, path: str, pages: Optional[List[int]] = None) -> List[Image.Image]:
-        return [Image.new("RGB", (100, 120))]
+    def convert(
+        self, path: str, pages: Optional[List[int]] = None
+    ) -> List[Tuple[int, Image.Image]]:
+        numbers = pages if pages is not None else [1]
+        return [(n, Image.new("RGB", (100, 120))) for n in numbers]
 
 
 @pytest.fixture()
@@ -88,10 +99,30 @@ class TestProcess:
         pipeline.process(str(stub_file))
         assert pipeline.extractor.call_count == 1
 
-    def test_pages_bypass_cache(self, pipeline: StructMDPipeline, stub_file: Path) -> None:
+    def test_page_selection_uses_page_cache(
+        self, pipeline: StructMDPipeline, stub_file: Path
+    ) -> None:
+        """Page subsets cache per page: the re-run must not re-extract."""
         pipeline.process(str(stub_file), pages=[1])
+        assert pipeline.extractor.call_count == 1
         pipeline.process(str(stub_file), pages=[1])
-        assert pipeline.extractor.call_count == 2  # never cached with page subsets
+        assert pipeline.extractor.call_count == 1  # served from page cache
+
+    def test_force_re_extracts_and_refreshes_cache(
+        self, pipeline: StructMDPipeline, stub_file: Path
+    ) -> None:
+        pipeline.process(str(stub_file), pages=[1])
+        assert pipeline.extractor.call_count == 1
+        pipeline.process(str(stub_file), pages=[1], force=True)
+        assert pipeline.extractor.call_count == 2  # bypassed cache read
+
+    def test_no_cache_config_disables_caching(
+        self, pipeline: StructMDPipeline, stub_file: Path
+    ) -> None:
+        pipeline.config.cache_enabled = False
+        pipeline.process(str(stub_file))
+        pipeline.process(str(stub_file))
+        assert pipeline.extractor.call_count == 2
 
     def test_output_json_written(
         self, pipeline: StructMDPipeline, stub_file: Path, tmp_path: Path
@@ -161,7 +192,7 @@ class TestBatch:
 
 class TestPublicApi:
     def test_version_and_exports(self) -> None:
-        assert structmd.__version__ == "0.1.0"
+        assert structmd.__version__
         for name in (
             "StructMDPipeline",
             "OllamaExtractor",

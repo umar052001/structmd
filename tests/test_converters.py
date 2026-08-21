@@ -58,21 +58,29 @@ def sample_odt(tmp_path_factory) -> Path:
 class TestPDFConverter:
     def test_renders_all_pages(self, sample_pdf: Path) -> None:
         conv = PDFConverter(dpi=150)
-        images = conv.convert(str(sample_pdf))
-        assert len(images) == 3
+        pages = conv.convert(str(sample_pdf))
+        assert [n for n, _ in pages] == [1, 2, 3]
         # 612x792pt at 150dpi -> 1275x1650px
-        assert images[0].size == (1275, 1650)
-        assert images[0].mode == "RGB"
+        assert pages[0][1].size == (1275, 1650)
+        assert pages[0][1].mode == "RGB"
 
     def test_dpi_controls_resolution(self, sample_pdf: Path) -> None:
-        images = PDFConverter(dpi=72).convert(str(sample_pdf))
-        assert images[0].size == (612, 792)
+        pages = PDFConverter(dpi=72).convert(str(sample_pdf))
+        assert pages[0][1].size == (612, 792)
 
     def test_page_selection_is_one_indexed(self, sample_pdf: Path) -> None:
         conv = PDFConverter(dpi=72)
-        images = conv.convert(str(sample_pdf), pages=[2])
-        assert len(images) == 1
-        # Rendered page 2 contains its marker text; verify via pixel size only here.
+        pages = conv.convert(str(sample_pdf), pages=[2])
+        assert len(pages) == 1
+
+    def test_selection_preserves_original_page_numbers(self, sample_pdf: Path) -> None:
+        """Selected page 3 must stay labeled 3 — never renumbered to 1.
+
+        Pages are returned in document order regardless of selection order.
+        """
+        conv = PDFConverter(dpi=72)
+        pages = conv.convert(str(sample_pdf), pages=[3, 1])
+        assert [n for n, _ in pages] == [1, 3]
 
     def test_out_of_range_pages_raise(self, sample_pdf: Path) -> None:
         conv = PDFConverter(dpi=72)
@@ -96,10 +104,12 @@ class TestImageConverter:
     def test_passthrough(self, tmp_path: Path) -> None:
         img_path = tmp_path / "page.png"
         Image.new("RGB", (320, 200), "steelblue").save(img_path)
-        images = ImageConverter().convert(str(img_path))
-        assert len(images) == 1
-        assert images[0].size == (320, 200)
-        assert images[0].mode == "RGB"
+        pages = ImageConverter().convert(str(img_path))
+        assert len(pages) == 1
+        number, image = pages[0]
+        assert number == 1
+        assert image.size == (320, 200)
+        assert image.mode == "RGB"
 
     def test_supports_common_formats(self) -> None:
         conv = ImageConverter()
@@ -117,9 +127,10 @@ class TestImageConverter:
 class TestOfficeConverter:
     def test_odt_to_images(self, sample_odt: Path) -> None:
         conv = OfficeConverter(dpi=100)
-        images = conv.convert(str(sample_odt))
-        assert len(images) >= 1
-        assert images[0].mode == "RGB"
+        pages = conv.convert(str(sample_odt))
+        assert len(pages) >= 1
+        assert pages[0][0] == 1  # original page number preserved
+        assert pages[0][1].mode == "RGB"
 
     def test_supports_office_extensions(self) -> None:
         conv = OfficeConverter()

@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from PIL import Image
 
@@ -30,7 +30,9 @@ class BaseConverter(ABC):
     """Contract for turning a source document into PIL page images."""
 
     @abstractmethod
-    def convert(self, path: str, pages: Optional[List[int]] = None) -> List[Image.Image]:
+    def convert(
+        self, path: str, pages: Optional[List[int]] = None
+    ) -> List[Tuple[int, Image.Image]]:
         """Convert ``path`` to page images.
 
         Args:
@@ -38,7 +40,9 @@ class BaseConverter(ABC):
             pages: 1-indexed page numbers to render; None means all pages.
 
         Returns:
-            Ordered list of RGB PIL images.
+            Ordered ``(page_number, image)`` pairs where ``page_number`` is the
+            page's original 1-indexed position in the source document — not its
+            position within the selection.
         """
 
     @abstractmethod

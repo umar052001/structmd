@@ -188,7 +188,7 @@ class TestBatchCommand:
 
         calls = {"n": 0}
 
-        def fake_process_batch(self, paths, pages=None):
+        def fake_process_batch(self, paths, pages=None, force=False):
             calls["n"] += 1
             return [
                 MarkdownDocument(
@@ -222,7 +222,7 @@ class TestBatchCommand:
         f.write_bytes(b"x")
         seen = {}
 
-        def fake_process_batch(self, paths, pages=None):
+        def fake_process_batch(self, paths, pages=None, force=False):
             seen["pages"] = pages
             return [MarkdownDocument(metadata={"source_path": p}) for p in paths]
 
@@ -248,7 +248,7 @@ class TestBatchCommand:
 
         seen = {"paths": None}
 
-        def fake_process_batch(self, paths, pages=None):
+        def fake_process_batch(self, paths, pages=None, force=False):
             seen["paths"] = list(paths)
             return [MarkdownDocument(metadata={"source_path": p}) for p in paths]
 
@@ -275,7 +275,7 @@ class TestBatchCommand:
 
         seen = {"paths": None}
 
-        def fake_process_batch(self, paths, pages=None):
+        def fake_process_batch(self, paths, pages=None, force=False):
             seen["paths"] = list(paths)
             return [MarkdownDocument(metadata={"source_path": p}) for p in paths]
 

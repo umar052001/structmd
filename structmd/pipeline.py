@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
+
+from PIL import Image
 
 from structmd.batch.processor import BatchProcessor
 from structmd.builders.markdown import BuilderConfig, MarkdownBuilder
@@ -15,7 +17,7 @@ from structmd.converters.base import detect_converter
 from structmd.converters.image import ImageConverter
 from structmd.converters.office import OfficeConverter
 from structmd.converters.pdf import PDFConverter
-from structmd.core import ExtractedDocument, MarkdownDocument
+from structmd.core import ExtractedDocument, ExtractedPage, MarkdownDocument
 from structmd.extractors.ollama import OllamaExtractor
 
 logger = logging.getLogger(__name__)
@@ -58,6 +60,7 @@ class StructMDPipeline:
         output_json: Optional[str] = None,
         output_md: Optional[str] = None,
         pages: Optional[List[int]] = None,
+        force: bool = False,
     ) -> MarkdownDocument:
         """Convert one document to Markdown end-to-end.
 
@@ -65,21 +68,23 @@ class StructMDPipeline:
             input_path: PDF / Office / image file.
             output_json: Where to persist the Stage 1 extraction JSON.
             output_md: Where to write the final Markdown.
-            pages: 1-indexed page subset (document cache bypassed when given).
+            pages: 1-indexed page subset (document cache bypassed when given;
+                page-level cache still applies).
+            force: Skip cache reads; re-extract and refresh cached entries.
         """
         extracted: Optional[ExtractedDocument] = None
 
         # 1) Fresh cache hit short-circuits conversion + extraction.
-        if pages is None:
+        if pages is None and self.config.cache_enabled and not force:
             extracted = self.cache.load(input_path)
             if extracted is not None:
                 logger.info("Cache hit for %s", input_path)
 
-        # 2-4) Convert and extract.
+        # 2-4) Convert and extract (page-level cache applies inside).
         if extracted is None:
-            extracted = self.extract_only(input_path, pages=pages)
+            extracted = self.extract_only(input_path, pages=pages, force=force)
             # 5) Persist to cache (full-document runs only).
-            if pages is None:
+            if pages is None and self.config.cache_enabled:
                 self.cache.save(input_path, extracted)
 
         # 6) Optional intermediate JSON.
@@ -106,19 +111,53 @@ class StructMDPipeline:
         input_path: str,
         output_json: Optional[str] = None,
         pages: Optional[List[int]] = None,
+        force: bool = False,
     ) -> ExtractedDocument:
-        """Run conversion + VLM extraction only; returns the JSON document."""
+        """Run conversion + VLM extraction only; returns the JSON document.
+
+        Page-level results are cached individually: a re-run only pays for
+        pages that changed or were never extracted. Pass ``force=True`` to
+        bypass cache reads (fresh writes are still recorded).
+        """
         converter = detect_converter(input_path, self.converters)
-        images = converter.convert(input_path, pages=pages)
-        if not images:
+        pairs = converter.convert(input_path, pages=pages)
+        if not pairs:
             raise ValueError(f"No pages rendered from {input_path!r}")
-        logger.info(
-            "Extracting %d page(s) from %s with %s",
-            len(images),
-            input_path,
-            self.config.ollama_model,
+
+        use_cache = self.config.cache_enabled and not force
+        by_number: Dict[int, ExtractedPage] = {}
+        misses: List[Tuple[int, Image.Image]] = []
+        if use_cache:
+            for number, image in pairs:
+                cached = self.cache.load_page(input_path, number)
+                if cached is not None:
+                    by_number[number] = cached
+                else:
+                    misses.append((number, image))
+        else:
+            misses = list(pairs)
+
+        if misses:
+            suffix = f" ({len(by_number)} from cache)" if by_number else ""
+            logger.info(
+                "Extracting %d page(s) from %s with %s%s",
+                len(misses),
+                input_path,
+                self.config.ollama_model,
+                suffix,
+            )
+            for number, image in misses:
+                page = self.extractor.extract_page(image, number)
+                by_number[number] = page
+                if self.config.cache_enabled:
+                    self.cache.save_page(input_path, page)
+
+        extracted = ExtractedDocument(
+            source_path=input_path,
+            page_count=len(by_number),
+            pages=[by_number[n] for n in sorted(by_number)],
+            metadata={"extractor": "ollama", "model": self.config.ollama_model},
         )
-        extracted = self.extractor.extract_document(images, source_path=input_path)
         extracted.metadata["dpi"] = self.config.dpi
 
         if output_json:
@@ -151,7 +190,10 @@ class StructMDPipeline:
     # ------------------------------------------------------------------
 
     async def process_batch_async(
-        self, paths: List[str], pages: Optional[List[int]] = None
+        self,
+        paths: List[str],
+        pages: Optional[List[int]] = None,
+        force: bool = False,
     ) -> List[MarkdownDocument]:
         """Async batch variant of :meth:`process_batch`."""
         processor = BatchProcessor(
@@ -159,42 +201,51 @@ class StructMDPipeline:
             max_workers=self.config.ollama_max_workers,
             dpi=self.config.dpi,
             converters=self.converters,
+            cache=self.cache if self.config.cache_enabled else None,
+            force=force,
         )
         documents = await processor.process_batch(paths, pages=pages)
         results = []
         for document in documents:
-            if document.source_path:
+            if document.source_path and self.config.cache_enabled:
                 self.cache.save(document.source_path, document)
             results.append(self.builder.build(document))
         return results
 
     def process_batch(
-        self, paths: List[str], pages: Optional[List[int]] = None
+        self,
+        paths: List[str],
+        pages: Optional[List[int]] = None,
+        force: bool = False,
     ) -> List[MarkdownDocument]:
         """Convert many documents; pages flow through a shared worker pool.
 
         Args:
             paths: Document paths.
             pages: Optional 1-indexed page selection applied to every document.
+            force: Skip cache reads; re-extract and refresh cached entries.
         """
         import asyncio
 
         try:
             asyncio.get_running_loop()
         except RuntimeError:
-            return asyncio.run(self.process_batch_async(paths, pages))
+            return asyncio.run(self.process_batch_async(paths, pages, force))
         else:
             # Already inside an event loop (e.g. Jupyter): run in a helper
             # thread with its own loop so we can block for the result.
             import concurrent.futures
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                return pool.submit(asyncio.run, self._batch_coro(paths, pages)).result()
+                return pool.submit(asyncio.run, self._batch_coro(paths, pages, force)).result()
 
     async def _batch_coro(
-        self, paths: List[str], pages: Optional[List[int]] = None
+        self,
+        paths: List[str],
+        pages: Optional[List[int]] = None,
+        force: bool = False,
     ) -> List[MarkdownDocument]:
-        return await self.process_batch_async(paths, pages)
+        return await self.process_batch_async(paths, pages, force)
 
     def close(self) -> None:
         """Release HTTP resources held by the extractor."""

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import pytest
 from PIL import Image
@@ -55,9 +55,10 @@ class StubConverter(BaseConverter):
     def supports(self, path: str) -> bool:
         return path.endswith(".stub")
 
-    def convert(self, path: str, pages=None) -> List[Image.Image]:
+    def convert(self, path: str, pages=None) -> List[Tuple[int, Image.Image]]:
         self.last_pages_seen = pages
-        return [Image.new("RGB", (10 + i, 20), "white") for i in range(self.pages_per_doc)]
+        numbers = pages if pages is not None else list(range(1, self.pages_per_doc + 1))
+        return [(n, Image.new("RGB", (10 + i, 20), "white")) for i, n in enumerate(numbers)]
 
 
 @pytest.fixture()
@@ -152,8 +153,61 @@ class TestBatchProcessing:
         processor = BatchProcessor(FakeExtractor(), max_workers=2, converters=[converter])
         docs = await processor.process_batch(stub_files[:1], pages=[1, 3])
         assert converter.last_pages_seen == [1, 3]
-        # Stub still renders 5 images regardless; selection is converter's job.
-        assert docs[0].page_count == 5
+        # Stub honors the selection; only selected pages come back.
+        assert docs[0].page_count == 2
+        assert [p.page_number for p in docs[0].pages] == [1, 3]
+
+    async def test_true_page_numbers_preserved(self, stub_files) -> None:
+        """Selected page 4 must stay labeled 4 (not renumbered to 1)."""
+        converter = StubConverter(pages_per_doc=6)
+        processor = BatchProcessor(FakeExtractor(), max_workers=2, converters=[converter])
+        docs = await processor.process_batch(stub_files[:1], pages=[4, 6])
+        assert [p.page_number for p in docs[0].pages] == [4, 6]
+
+    async def test_page_cache_hits_skip_extraction(self, stub_files, tmp_path) -> None:
+        """Second run must serve every page from cache: zero extractor calls."""
+        from structmd.cache.manager import CacheManager
+
+        for f in stub_files:  # cache keys require a real stat-able file
+            Path(f).write_bytes(b"stub")
+        cache = CacheManager(str(tmp_path / "cache"))
+        first = BatchProcessor(
+            FakeExtractor(), max_workers=2, converters=[StubConverter()], cache=cache
+        )
+        docs1 = await first.process_batch(stub_files)
+        assert sum(d.page_count for d in docs1) == 9
+
+        extractor2 = FakeExtractor()
+        second = BatchProcessor(
+            extractor2, max_workers=2, converters=[StubConverter()], cache=cache
+        )
+        docs2 = await second.process_batch(stub_files)
+        assert extractor2.calls == []  # nothing re-extracted
+        assert [p.page_number for d in docs2 for p in d.pages] == [
+            p.page_number for d in docs1 for p in d.pages
+        ]
+
+    async def test_force_bypasses_cache_reads(self, stub_files, tmp_path) -> None:
+        from structmd.cache.manager import CacheManager
+
+        for f in stub_files:
+            Path(f).write_bytes(b"stub")
+        cache = CacheManager(str(tmp_path / "cache"))
+        warm = BatchProcessor(
+            FakeExtractor(), max_workers=2, converters=[StubConverter()], cache=cache
+        )
+        await warm.process_batch(stub_files[:1])
+
+        extractor2 = FakeExtractor()
+        forced = BatchProcessor(
+            extractor2,
+            max_workers=2,
+            converters=[StubConverter()],
+            cache=cache,
+            force=True,
+        )
+        await forced.process_batch(stub_files[:1])
+        assert sorted(extractor2.calls) == [1, 2, 3]  # re-extracted despite cache
 
     async def test_metadata_records_model(self, stub_files) -> None:
         class WithConfig(FakeExtractor):

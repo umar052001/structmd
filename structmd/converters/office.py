@@ -6,7 +6,7 @@ import logging
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from PIL import Image
 
@@ -32,7 +32,9 @@ class OfficeConverter(BaseConverter):
     def supports(self, path: str) -> bool:
         return self._extension(path) in OFFICE_EXTENSIONS
 
-    def convert(self, path: str, pages: Optional[List[int]] = None) -> List[Image.Image]:
+    def convert(
+        self, path: str, pages: Optional[List[int]] = None
+    ) -> List[Tuple[int, Image.Image]]:
         """Convert an Office document to page images via PDF intermediate."""
         self._require_file(path)
         source = Path(path)

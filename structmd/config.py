@@ -42,6 +42,7 @@ class StructMDConfig:
     normalize_headings: bool = True
     table_caption_position: str = "before"  # "before" or "after"
     cache_dir: str = "~/.cache/structmd"
+    cache_enabled: bool = True
     verbose: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
