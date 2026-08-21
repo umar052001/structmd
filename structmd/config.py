@@ -43,6 +43,9 @@ class StructMDConfig:
     table_caption_position: str = "before"  # "before" or "after"
     cache_dir: str = "~/.cache/structmd"
     cache_enabled: bool = True
+    save_assets: bool = False  # crop figure regions out of PDFs as PNGs
+    assets_dirname: str = "figures"  # subdirectory beside the Markdown output
+    assets_dpi: int = 200
     verbose: bool = False
 
     def to_dict(self) -> Dict[str, Any]:

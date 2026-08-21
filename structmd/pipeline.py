@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Tuple
 
 from PIL import Image
 
+from structmd.assets import attach_assets
 from structmd.batch.processor import BatchProcessor
 from structmd.builders.markdown import BuilderConfig, MarkdownBuilder
 from structmd.cache.manager import CacheManager
@@ -92,15 +93,41 @@ class StructMDPipeline:
             written = extracted.save_json(output_json)
             logger.info("Extraction JSON written to %s", written)
 
-        # 7) Deterministic build.
+        # 7) Optional figure assets (annotates elements before building).
+        if output_md:
+            self._extract_assets_for(extracted, output_md)
+
+        # 8) Deterministic build.
         markdown = self.builder.build(extracted)
 
-        # 8) Optional Markdown output.
+        # 9) Optional Markdown output.
         if output_md:
             written = markdown.save(output_md)
             logger.info("Markdown written to %s", written)
 
         return markdown
+
+    # ------------------------------------------------------------------
+    # Figure assets
+    # ------------------------------------------------------------------
+
+    def _extract_assets_for(self, document: ExtractedDocument, md_target: str) -> None:
+        """Crop figure regions beside ``md_target`` when assets are enabled.
+
+        No-op unless ``config.save_assets`` is set or the source is missing.
+        """
+        if not self.config.save_assets or not document.source_path:
+            return
+        try:
+            attach_assets(
+                document.source_path,
+                document,
+                md_target,
+                dpi=self.config.assets_dpi,
+                dirname=self.config.assets_dirname,
+            )
+        except Exception as exc:  # noqa: BLE001 - assets must never kill a run
+            logger.warning("Asset extraction failed for %s: %s", document.source_path, exc)
 
     # ------------------------------------------------------------------
     # Stage 1 only
@@ -194,6 +221,7 @@ class StructMDPipeline:
         paths: List[str],
         pages: Optional[List[int]] = None,
         force: bool = False,
+        output_dir: Optional[str] = None,
     ) -> List[MarkdownDocument]:
         """Async batch variant of :meth:`process_batch`."""
         processor = BatchProcessor(
@@ -209,6 +237,9 @@ class StructMDPipeline:
         for document in documents:
             if document.source_path and self.config.cache_enabled:
                 self.cache.save(document.source_path, document)
+            if output_dir and document.source_path:
+                stem = Path(document.source_path).stem
+                self._extract_assets_for(document, str(Path(output_dir) / f"{stem}.md"))
             results.append(self.builder.build(document))
         return results
 
@@ -217,6 +248,7 @@ class StructMDPipeline:
         paths: List[str],
         pages: Optional[List[int]] = None,
         force: bool = False,
+        output_dir: Optional[str] = None,
     ) -> List[MarkdownDocument]:
         """Convert many documents; pages flow through a shared worker pool.
 
@@ -224,28 +256,33 @@ class StructMDPipeline:
             paths: Document paths.
             pages: Optional 1-indexed page selection applied to every document.
             force: Skip cache reads; re-extract and refresh cached entries.
+            output_dir: When set together with ``config.save_assets``, figure
+                PNGs are written to ``<output_dir>/<assets_dirname>/``.
         """
         import asyncio
 
         try:
             asyncio.get_running_loop()
         except RuntimeError:
-            return asyncio.run(self.process_batch_async(paths, pages, force))
+            return asyncio.run(self.process_batch_async(paths, pages, force, output_dir))
         else:
             # Already inside an event loop (e.g. Jupyter): run in a helper
             # thread with its own loop so we can block for the result.
             import concurrent.futures
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                return pool.submit(asyncio.run, self._batch_coro(paths, pages, force)).result()
+                return pool.submit(
+                    asyncio.run, self._batch_coro(paths, pages, force, output_dir)
+                ).result()
 
     async def _batch_coro(
         self,
         paths: List[str],
         pages: Optional[List[int]] = None,
         force: bool = False,
+        output_dir: Optional[str] = None,
     ) -> List[MarkdownDocument]:
-        return await self.process_batch_async(paths, pages, force)
+        return await self.process_batch_async(paths, pages, force, output_dir)
 
     def close(self) -> None:
         """Release HTTP resources held by the extractor."""

@@ -125,6 +125,12 @@ def _apply_cli_overrides(config, model, url, workers, dpi, page_numbers, merge) 
     help="Disable the cache entirely for this run.",
 )
 @click.option(
+    "--save-assets",
+    is_flag=True,
+    default=False,
+    help="Crop figure regions out of PDFs as PNGs and link them in the Markdown.",
+)
+@click.option(
     "--config", "config_path", type=click.Path(), default=None, help="Path to config YAML."
 )
 @click.option(
@@ -145,6 +151,7 @@ def main(
     no_merge: bool,
     force: bool,
     no_cache: bool,
+    save_assets: bool,
     config_path: Optional[str],
     verbose: bool,
 ) -> None:
@@ -179,6 +186,7 @@ def main(
             pages_spec=pages,
             force=force,
             no_cache=no_cache,
+            save_assets=save_assets,
         )
         return
 
@@ -198,6 +206,7 @@ def main(
         no_merge=no_merge,
         force=force,
         no_cache=no_cache,
+        save_assets=save_assets,
         config_path=config_path,
     )
 
@@ -218,6 +227,7 @@ def _run_convert(
     no_merge: bool,
     force: bool = False,
     no_cache: bool = False,
+    save_assets: bool = False,
     config_path: Optional[str] = None,
 ) -> None:
     if extra_paths:
@@ -230,6 +240,8 @@ def _run_convert(
     _apply_cli_overrides(config, model, url, workers, dpi, not no_page_numbers, not no_merge)
     if no_cache:
         config.cache_enabled = False
+    if save_assets:
+        config.save_assets = True
 
     final_md = output_md or output
     page_list: Optional[List[int]] = parse_pages(pages) if pages else None
@@ -274,6 +286,7 @@ def _run_batch(
     pages_spec: Optional[str] = None,
     force: bool = False,
     no_cache: bool = False,
+    save_assets: bool = False,
 ) -> None:
     if not paths:
         raise click.ClickException("batch requires at least one input file")
@@ -292,11 +305,15 @@ def _run_batch(
     _apply_cli_overrides(config, model, url, workers, dpi, True, True)
     if no_cache:
         config.cache_enabled = False
+    if save_assets:
+        config.save_assets = True
     page_list = parse_pages(pages_spec) if pages_spec else None
 
     try:
         with StructMDPipeline(config) as pipeline:
-            documents = pipeline.process_batch(files, pages=page_list, force=force)
+            documents = pipeline.process_batch(
+                files, pages=page_list, force=force, output_dir=output_dir
+            )
     except StructMDError as exc:
         raise click.ClickException(str(exc)) from exc
 

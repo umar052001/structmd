@@ -115,6 +115,9 @@ structmd batch doc1.pdf doc2.docx doc3.png -o output_dir/
 # page selection (1-indexed, ranges allowed)
 structmd input.pdf --pages 1,3,5-10 -o output.md
 
+# extract figures as PNGs and link them in the Markdown
+structmd input.pdf --save-assets -o output.md   # -> ./figures/*.png
+
 # custom config file
 structmd --config ~/.structmd.yaml input.pdf -o out.md
 ```
@@ -219,6 +222,19 @@ Extraction results are cached under `~/.cache/structmd` keyed by `sha256(path + 
 - Page-level entries (`{hash}_page{N}.json`) support partial reuse.
 
 Force a fresh run with `structmd` after touching the file, or clear the cache directory.
+
+## Figure extraction
+
+Pass `--save-assets` (or set `save_assets: true` in config) and every region the
+VLM flagged as an image is clip-rendered from the source PDF at `assets_dpi`
+(default 200) into `<output_dir>/figures/`. The Markdown links the real files:
+
+```markdown
+![Diagram of the Vision Transformer architecture](figures/2010.11929_p03_1.png)
+```
+
+Clip-rendering captures vector graphics and labels, not just embedded rasters.
+Blank crops (VLM boxes that landed on empty space) are dropped automatically.
 
 ## Batch processing
 

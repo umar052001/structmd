@@ -73,6 +73,7 @@ class TableNode:
 class ImageNode:
     description: str = ""
     caption: Optional[str] = None
+    src: Optional[str] = None  # relative path when asset extraction ran
 
 
 @dataclass
@@ -363,7 +364,13 @@ class MarkdownBuilder:
                 if idx < len(elements) and elements[idx].type == ElementType.CAPTION:
                     caption = elements[idx].text.strip()
                     idx += 1
-                container.append(ImageNode(description=description, caption=caption))
+                container.append(
+                    ImageNode(
+                        description=description,
+                        caption=caption,
+                        src=el.metadata.get("asset_path"),
+                    )
+                )
 
             elif el.type == ElementType.CODE_BLOCK:
                 language = el.metadata.get("language")
@@ -556,7 +563,8 @@ class MarkdownBuilder:
 
     def _render_image(self, node: ImageNode) -> str:
         alt = node.description or node.caption or "image"
-        md = f"![{_escape_table_cell(alt)}](image_placeholder)"
+        src = node.src or "image_placeholder"
+        md = f"![{_escape_table_cell(alt)}]({src})"
         if node.caption:
             md += f"\n*{node.caption}*"
         return md
