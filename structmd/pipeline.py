@@ -125,6 +125,7 @@ class StructMDPipeline:
                 md_target,
                 dpi=self.config.assets_dpi,
                 dirname=self.config.assets_dirname,
+                cache=self.cache if self.config.cache_enabled else None,
             )
         except Exception as exc:  # noqa: BLE001 - assets must never kill a run
             logger.warning("Asset extraction failed for %s: %s", document.source_path, exc)
