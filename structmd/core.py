@@ -102,16 +102,36 @@ class BoundingBox:
         """Build a :class:`BoundingBox` from a dict with keys ``x1..y2``.
 
         Also accepts a 4-item list/tuple ``[x1, y1, x2, y2]`` which is the shape
-        VLMs most commonly emit.
+        VLMs most commonly emit. Malformed payloads raise ``ValueError`` with a
+        message naming the problem so the repair layer can report it per page
+        instead of crashing deep in the builder.
         """
-        if isinstance(data, (list, tuple)) and len(data) == 4:
-            return cls(x1=float(data[0]), y1=float(data[1]), x2=float(data[2]), y2=float(data[3]))
-        return cls(
-            x1=float(data["x1"]),
-            y1=float(data["y1"]),
-            x2=float(data["x2"]),
-            y2=float(data["y2"]),
-        )
+        if isinstance(data, (list, tuple)):
+            if len(data) != 4:
+                raise ValueError(f"Invalid bbox sequence: expected 4 coordinates, got {len(data)}")
+            try:
+                return cls(
+                    x1=float(data[0]), y1=float(data[1]), x2=float(data[2]), y2=float(data[3])
+                )
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Non-numeric bbox coordinates in {data!r}") from exc
+        if not isinstance(data, dict):
+            raise ValueError(
+                f"Invalid bbox payload: expected a dict or 4-item sequence, "
+                f"got {type(data).__name__}"
+            )
+        missing = {"x1", "y1", "x2", "y2"} - set(data)
+        if missing:
+            raise ValueError(f"BoundingBox missing coordinate(s): {sorted(missing)}")
+        try:
+            return cls(
+                x1=float(data["x1"]),
+                y1=float(data["y1"]),
+                x2=float(data["x2"]),
+                y2=float(data["y2"]),
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Non-numeric bbox coordinates in {data!r}") from exc
 
     def _intersection_area(self, other: BoundingBox) -> float:
         """Compute the raw intersection area with another box."""
