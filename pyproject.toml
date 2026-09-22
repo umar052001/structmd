@@ -1,6 +1,6 @@
 [project]
 name = "structmd"
-version = "0.2.0"
+version = "0.3.0"
 description = "Convert PDFs, Office documents, and images into structured Markdown using small VLMs via Ollama."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -40,6 +40,7 @@ dev = [
     "black>=23.0",
     "ruff>=0.1.0",
     "mypy>=1.0",
+    "bandit>=1.7.0",
     "types-PyYAML",
 ]
 all = ["PyMuPDF>=1.23.0"]
