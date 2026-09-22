@@ -35,3 +35,14 @@ extraction.json
 
 # local tooling binaries
 actionlint
+
+# editor / agent tooling folders
+.agents/
+.opencode/
+.claude/
+.cursor/
+skills/
+
+# benchmark artifacts (papers are re-fetchable via benchmarks/fetch_papers.sh)
+benchmarks/corpus/
+benchmarks/report.json
