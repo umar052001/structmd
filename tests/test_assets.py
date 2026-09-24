@@ -12,6 +12,7 @@ from PIL import Image
 
 from structmd.assets import AssetExtractor, attach_assets
 from structmd.builders.markdown import MarkdownBuilder
+from structmd.cache.manager import CacheManager
 from structmd.config import StructMDConfig
 from structmd.core import (
     BoundingBox,
@@ -126,6 +127,55 @@ class TestAssetExtractor:
         document.source_path = str(figure_pdf)
         written = attach_assets(str(figure_pdf), document, str(md_target), dpi=144)
         assert (tmp_path / "out" / written[0]).is_file()
+
+    def test_filename_derived_from_element_id_not_position(
+        self, figure_pdf: Path, tmp_path: Path
+    ) -> None:
+        """Crop names must not depend on element ordering in the page."""
+        first = make_document()
+        first.source_path = str(figure_pdf)
+        written_first = AssetExtractor(dpi=144).extract_assets(
+            str(figure_pdf), first, str(tmp_path / "run1")
+        )
+
+        # Same element (same id), different position in the element list.
+        element = first.pages[0].elements[0]
+        reordered = make_document()
+        reordered.source_path = str(figure_pdf)
+        reordered.pages[0].elements = [
+            DocumentElement(type=ElementType.PARAGRAPH, text="preamble", page_number=1),
+            element,
+        ]
+        written_again = AssetExtractor(dpi=144).extract_assets(
+            str(figure_pdf), reordered, str(tmp_path / "run2")
+        )
+
+        assert written_first == written_again
+
+    def test_crops_served_from_cache_without_rerendering(
+        self, figure_pdf: Path, tmp_path: Path
+    ) -> None:
+        """A warmed run must reuse rendered crops, not re-render them."""
+        cache = CacheManager(cache_dir=str(tmp_path / "cache"))
+        document = make_document()
+        document.source_path = str(figure_pdf)
+
+        extractor = AssetExtractor(dpi=144, cache=cache)
+        renders: list = []
+        original_render = extractor._render
+        extractor._render = lambda page, rect: renders.append(rect) or original_render(page, rect)
+
+        first = extractor.extract_assets(str(figure_pdf), document, str(tmp_path / "out1"))
+        assert len(renders) == 1
+
+        renders.clear()
+        second = extractor.extract_assets(str(figure_pdf), document, str(tmp_path / "out2"))
+        assert len(renders) == 0, "cached run must not re-render any crop"
+        assert first == second
+        # both outputs exist and are byte-identical
+        assert (tmp_path / "out1" / first[0]).read_bytes() == (
+            tmp_path / "out2" / second[0]
+        ).read_bytes()
 
 
 class TestBuilderLinks:

@@ -40,8 +40,8 @@ class TestKeying:
         cache = CacheManager(cache_dir=str(source_file.parent / "cache"))
         assert cache.compute_key(str(source_file)) == cache.compute_key(str(source_file))
 
-    def test_missing_file_returns_none(self) -> None:
-        cache = CacheManager(cache_dir="/tmp/opencode/cache-test")
+    def test_missing_file_returns_none(self, tmp_path) -> None:
+        cache = CacheManager(cache_dir=str(tmp_path / "cache"))
         assert cache.compute_key("/no/such/file.pdf") is None
 
 

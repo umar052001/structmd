@@ -38,6 +38,26 @@ class TestBoundingBox:
         box = BoundingBox.from_dict([5, 6, 7, 8])
         assert box == BoundingBox(5.0, 6.0, 7.0, 8.0)
 
+    def test_from_dict_rejects_missing_coordinates(self) -> None:
+        with pytest.raises(ValueError, match="missing coordinate"):
+            BoundingBox.from_dict({"x1": 1, "y1": 2, "x2": 3})
+
+    def test_from_dict_rejects_non_numeric_values(self) -> None:
+        with pytest.raises(ValueError, match="Non-numeric"):
+            BoundingBox.from_dict({"x1": "a", "y1": 2, "x2": 3, "y2": 4})
+        with pytest.raises(ValueError, match="Non-numeric"):
+            BoundingBox.from_dict([1, 2, "oops", 4])
+
+    def test_from_dict_rejects_wrong_length_sequence(self) -> None:
+        with pytest.raises(ValueError, match="expected 4 coordinates"):
+            BoundingBox.from_dict([1, 2, 3])
+        with pytest.raises(ValueError, match="expected 4 coordinates"):
+            BoundingBox.from_dict([1, 2, 3, 4, 5])
+
+    def test_from_dict_rejects_unknown_payload_type(self) -> None:
+        with pytest.raises(ValueError, match="expected a dict or 4-item sequence"):
+            BoundingBox.from_dict("1,2,3,4")  # type: ignore[arg-type]
+
     def test_intersects_full_overlap(self) -> None:
         a = BoundingBox(0, 0, 100, 100)
         b = BoundingBox(10, 10, 90, 90)
@@ -151,7 +171,7 @@ class TestExtractedPageAndDocument:
         )
         return ExtractedDocument(
             document_id="doc-1",
-            source_path="/tmp/report.pdf",
+            source_path="sample-report.pdf",
             page_count=1,
             pages=[page],
             metadata={"model": "qwen2-vl:2b"},

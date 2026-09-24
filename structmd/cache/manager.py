@@ -1,7 +1,8 @@
 """File-hash based JSON cache for extraction results.
 
-Cache key = ``sha256(abs_path + mtime + size)`` so moving a file invalidates
-nothing (path-independent), while any modification does.
+Cache key = ``sha256(abs_path + mtime + size)``. Any modification to the
+source file therefore invalidates its entries; an untouched file keeps its
+entries until something changes.
 """
 
 from __future__ import annotations
@@ -169,3 +170,43 @@ class CacheManager:
         if not self._is_fresh(entry, file_path):
             return None
         return ExtractedPage.from_dict(entry["page"])
+
+    # ------------------------------------------------------------------
+    # Asset crops (binary, keyed by document identity + element)
+    # ------------------------------------------------------------------
+    #
+    # Rendered figure crops live under the same document key as their
+    # extraction JSON, so a source edit invalidates crops with the pages.
+    # Element ids come from the cached extraction itself: as long as a
+    # page is served from cache, its crops are known-good and never
+    # re-rendered.
+
+    @staticmethod
+    def _sanitize(element_id: str) -> str:
+        return "".join(c if c.isalnum() or c in "-_" else "_" for c in element_id)
+
+    def _asset_path(self, key: str, page_number: int, element_id: str, dpi: int) -> Path:
+        safe_id = self._sanitize(element_id)
+        return self._shard_dir(key) / f"{key}_p{page_number}_{safe_id}_{dpi}px.png"
+
+    def load_asset(self, key: str, page_number: int, element_id: str, dpi: int) -> Optional[bytes]:
+        """Return cached crop bytes for one image element, or None."""
+        asset_path = self._asset_path(key, page_number, element_id, dpi)
+        if not asset_path.is_file():
+            return None
+        try:
+            return asset_path.read_bytes()
+        except OSError as exc:
+            logger.warning("Could not read asset cache %s: %s", asset_path, exc)
+            return None
+
+    def save_asset(
+        self, key: str, page_number: int, element_id: str, dpi: int, data: bytes
+    ) -> None:
+        """Persist rendered crop bytes (atomic swap)."""
+        asset_path = self._asset_path(key, page_number, element_id, dpi)
+        asset_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = asset_path.with_suffix(".png.tmp")
+        tmp_path.write_bytes(data)
+        os.replace(tmp_path, asset_path)
+        logger.debug("Cached asset crop at %s", asset_path)

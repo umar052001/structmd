@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import logging
-import subprocess
+import shutil
+
+# The LibreOffice bridge needs subprocess; see _to_pdf for why the use is
+# constrained (fixed argv, no shell) and carries the corresponding marker.
+import subprocess  # nosec B404
 import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -45,9 +49,15 @@ class OfficeConverter(BaseConverter):
             return self._pdf_converter.convert(str(pdf_path), pages=pages)
 
     def _to_pdf(self, source: Path, outdir: Path) -> Path:
-        """Run ``soffice --headless --convert-to pdf`` and return the PDF path."""
+        """Run ``soffice --headless --convert-to pdf`` and return the PDF path.
+
+        The binary is resolved through PATH at call time, not at construction,
+        so the pipeline stays usable for PDF-only users who never install
+        LibreOffice; a missing binary surfaces as the runtime error below.
+        """
+        binary = shutil.which(self.soffice_binary) or self.soffice_binary
         cmd = [
-            self.soffice_binary,
+            binary,
             "--headless",
             "--convert-to",
             "pdf",
@@ -56,7 +66,10 @@ class OfficeConverter(BaseConverter):
             str(source),
         ]
         try:
-            proc = subprocess.run(
+            # The argv list below is fixed except for the user's document path
+            # and nothing is routed through a shell, so there is no injection
+            # surface; the marker on the call documents that decision.
+            proc = subprocess.run(  # nosec B603
                 cmd,
                 capture_output=True,
                 text=True,

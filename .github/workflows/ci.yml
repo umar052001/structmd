@@ -34,6 +34,9 @@ jobs:
       - name: Mypy
         run: uv run --no-sync mypy structmd
 
+      - name: Bandit (medium+ severities)
+        run: uv run --no-sync bandit -r structmd -q
+
   test:
     name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
