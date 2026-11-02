@@ -3,17 +3,17 @@
 Every metric is deterministic and dependency-free (stdlib only) so the
 harness can run anywhere, including CI, against collected ground truth.
 
-Metrics follow the READ benchmark family (ACL 2025) in spirit but stay
-pragmatic about what ground truth is available without manual annotation:
+These are lightweight regression proxies based on what reference text is
+available without manual annotation, not an implementation of a named benchmark:
 
 - content F1:      word-level precision/recall/F1 of extracted text vs the
                    PDF's native text layer (born-digital documents only)
-- reading order:   SequenceMatcher ratio between the concatenated extracted
-                   text and the text-layer stream
-- heading honesty: share of extracted headings that do NOT appear anywhere
-                   in the source text layer (hallucinated structure)
+- reading order:   SequenceMatcher ratio between extracted and reference word
+                   streams, with autojunk disabled
+- heading grounding: share of distinct headings absent from the normalized
+                     source text (not a heading-detection accuracy score)
 - table health:    share of tables whose data rows match the header width
-- figure health:   detected vs annotated figure counts + broken link check
+- figure helper:   broken asset link detection (not figure detection accuracy)
 
 Ground truth comes from the PDFs' embedded text layer, so scoring scans
 (e.g. photographed pages) is out of scope for now.
@@ -53,23 +53,22 @@ def content_f1(extracted_text: str, ground_truth: str) -> Tuple[float, float, fl
 
 def reading_order_similarity(extracted_text: str, ground_truth: str) -> float:
     """0..1 similarity of the word streams, order-sensitive."""
-    left = " ".join(normalize(extracted_text).split())
-    right = " ".join(normalize(ground_truth).split())
-    return round(difflib.SequenceMatcher(None, left, right).ratio(), 4)
+    left = normalize(extracted_text).split()
+    right = normalize(ground_truth).split()
+    return round(difflib.SequenceMatcher(None, left, right, autojunk=False).ratio(), 4)
 
 
-def heading_hallucination_rate(headings: Sequence[str], ground_truth: str) -> float:
-    """Share of extracted headings absent from the source text layer.
+def heading_text_absence_rate(headings: Sequence[str], ground_truth: str) -> float:
+    """Share of distinct extracted headings absent from the source text layer.
 
-    A heading is "hallucinated" when its normalized form appears nowhere in
-    the ground truth. 1.0 means every heading was invented; 0.0 means every
-    heading is grounded in the document.
+    This is a text-grounding proxy, not proof of hallucination or correct
+    heading classification. Whitespace and PDF line wrapping are ignored.
     """
-    truth_lines = {normalize(line) for line in ground_truth.splitlines() if line.strip()}
+    truth = f" {normalize(ground_truth)} "
     distinct = {normalize(h) for h in headings if normalize(h)}
     if not distinct:
         return 0.0
-    missing = sum(1 for heading in distinct if heading not in truth_lines)
+    missing = sum(1 for heading in distinct if f" {heading} " not in truth)
     return round(missing / len(distinct), 4)
 
 

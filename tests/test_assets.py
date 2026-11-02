@@ -153,7 +153,7 @@ class TestAssetExtractor:
         assert written_first == written_again
 
     def test_crops_served_from_cache_without_rerendering(
-        self, figure_pdf: Path, tmp_path: Path
+        self, figure_pdf: Path, tmp_path: Path, monkeypatch
     ) -> None:
         """A warmed run must reuse rendered crops, not re-render them."""
         cache = CacheManager(cache_dir=str(tmp_path / "cache"))
@@ -163,7 +163,12 @@ class TestAssetExtractor:
         extractor = AssetExtractor(dpi=144, cache=cache)
         renders: list = []
         original_render = extractor._render
-        extractor._render = lambda page, rect: renders.append(rect) or original_render(page, rect)
+
+        def count_render(page, rect):
+            renders.append(rect)
+            return original_render(page, rect)
+
+        monkeypatch.setattr(extractor, "_render", count_render)
 
         first = extractor.extract_assets(str(figure_pdf), document, str(tmp_path / "out1"))
         assert len(renders) == 1
@@ -176,6 +181,95 @@ class TestAssetExtractor:
         assert (tmp_path / "out1" / first[0]).read_bytes() == (
             tmp_path / "out2" / second[0]
         ).read_bytes()
+
+    @pytest.mark.parametrize("ids", [("a/b", "a?b"), ("same", "same"), ("", "")])
+    @pytest.mark.parametrize("use_cache", [False, True])
+    def test_distinct_crops_do_not_collide(
+        self, figure_pdf: Path, tmp_path: Path, ids, use_cache: bool
+    ) -> None:
+        document = make_document()
+        first = document.pages[0].elements[0]
+        first.id = ids[0]
+        document.pages[0].elements.append(
+            DocumentElement(
+                id=ids[1],
+                type=ElementType.IMAGE,
+                bbox=BoundingBox(90, 190, 410, 510),
+                page_number=1,
+            )
+        )
+        cache = CacheManager(str(tmp_path / "cache")) if use_cache else None
+        extractor = AssetExtractor(dpi=144, cache=cache)
+        written = extractor.extract_assets(str(figure_pdf), document, str(tmp_path / "out"))
+        assert len(set(written)) == 2
+        assert (tmp_path / "out" / written[0]).read_bytes() != (
+            tmp_path / "out" / written[1]
+        ).read_bytes()
+        again = extractor.extract_assets(str(figure_pdf), document, str(tmp_path / "again"))
+        assert again == written
+        for relative in written:
+            assert (tmp_path / "out" / relative).read_bytes() == (
+                tmp_path / "again" / relative
+            ).read_bytes()
+
+    def test_distinct_original_ids_have_distinct_names(self) -> None:
+        rect = (100.0, 200.0, 400.0, 500.0)
+        ids = ["a/b", "a?b", "a_b", "", "x" * 10000]
+        fragments = [AssetExtractor._safe_fragment(DocumentElement(id=id_), rect) for id_ in ids]
+        assert len(set(fragments)) == len(ids)
+        assert all(len(fragment) == 65 for fragment in fragments)
+
+    @pytest.mark.parametrize("edit", ["bbox", "page_width"])
+    def test_geometry_edit_invalidates_crop(
+        self, figure_pdf: Path, tmp_path: Path, monkeypatch, edit: str
+    ) -> None:
+        cache = CacheManager(str(tmp_path / "cache"))
+        document = make_document()
+        extractor = AssetExtractor(dpi=144, cache=cache)
+        first = extractor.extract_assets(str(figure_pdf), document, str(tmp_path / "out1"))
+        if edit == "bbox":
+            document.pages[0].elements[0].bbox = BoundingBox(90, 190, 410, 510)
+        else:
+            document.pages[0].width = 600
+        renders = []
+        render = extractor._render
+
+        def count_render(page, rect):
+            renders.append(rect)
+            return render(page, rect)
+
+        monkeypatch.setattr(extractor, "_render", count_render)
+        second = extractor.extract_assets(str(figure_pdf), document, str(tmp_path / "out2"))
+        assert len(renders) == 1
+        assert first != second
+        assert (tmp_path / "out1" / first[0]).read_bytes() != (
+            tmp_path / "out2" / second[0]
+        ).read_bytes()
+        renders.clear()
+        assert extractor.extract_assets(str(figure_pdf), document, str(tmp_path / "out3")) == second
+        assert not renders
+
+    def test_cache_write_failure_does_not_abort_assets(
+        self, figure_pdf: Path, tmp_path: Path, monkeypatch
+    ) -> None:
+        cache = CacheManager(str(tmp_path / "cache"))
+        document = make_document()
+        document.pages[0].elements.append(
+            DocumentElement(type=ElementType.IMAGE, bbox=BoundingBox(90, 190, 410, 510))
+        )
+
+        def fail_replace(*args):
+            raise OSError("cache full")
+
+        monkeypatch.setattr("structmd.cache.manager.os.replace", fail_replace)
+        written = AssetExtractor(dpi=144, cache=cache).extract_assets(
+            str(figure_pdf), document, str(tmp_path / "out")
+        )
+        assert len(written) == 2
+        for element, relative in zip(document.pages[0].elements, written):
+            assert element.metadata["asset_path"] == relative
+            assert (tmp_path / "out" / relative).is_file()
+        assert not list(cache.cache_dir.rglob("*.tmp"))
 
 
 class TestBuilderLinks:
@@ -245,7 +339,7 @@ class TestPipelineWiring:
             assets_dpi=144,
         )
         pipe = StructMDPipeline(config=config)
-        pipe.extractor = StubExtractor(config)
+        monkeypatch.setattr(pipe, "extractor", StubExtractor(config))
         monkeypatch.setattr(
             "structmd.pipeline.PDFConverter.convert",
             lambda self, path, pages=None: [

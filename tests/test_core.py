@@ -56,7 +56,14 @@ class TestBoundingBox:
 
     def test_from_dict_rejects_unknown_payload_type(self) -> None:
         with pytest.raises(ValueError, match="expected a dict or 4-item sequence"):
-            BoundingBox.from_dict("1,2,3,4")  # type: ignore[arg-type]
+            BoundingBox.from_dict("1,2,3,4")
+
+    @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_coordinates_rejected(self, value):
+        with pytest.raises(ValueError, match="finite"):
+            BoundingBox.from_dict([0, 0, value, 1])
+        with pytest.raises(ValueError, match="finite"):
+            BoundingBox.from_dict({"x1": 0, "y1": 0, "x2": value, "y2": 1})
 
     def test_intersects_full_overlap(self) -> None:
         a = BoundingBox(0, 0, 100, 100)

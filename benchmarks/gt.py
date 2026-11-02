@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from structmd.converters.pdf import fitz_module
+from structmd.core import ExtractedDocument
 
 PROSE_TYPES = {"paragraph", "heading", "list_item", "caption"}
 
@@ -30,7 +31,7 @@ def extract_ground_truth(pdf_path: str, pages: Optional[List[int]] = None) -> st
     return "\n".join(chunks)
 
 
-def extracted_text_pages(document) -> List[str]:
+def extracted_text_pages(document: ExtractedDocument) -> List[str]:
     """Join each extracted page's prose into one text blob, in order."""
     blobs: List[str] = []
     for page in document.pages:
@@ -39,14 +40,6 @@ def extracted_text_pages(document) -> List[str]:
             if element.type.value in PROSE_TYPES and element.text:
                 parts.append(element.text)
             elif element.type.value == "table" and element.table_data:
-                td = element.table_data
-                if isinstance(td, dict):
-                    headers = td.get("headers") or []
-                    rows = td.get("rows") or []
-                    parts.append(" ".join(headers))
-                    parts.append(" ".join(" ".join(cells) for cells in rows))
-                else:
-                    for row in td:
-                        parts.append(" ".join(str(c) for c in row))
+                parts.extend(" ".join(row) for row in element.table_data)
         blobs.append("\n".join(parts))
     return blobs
