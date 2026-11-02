@@ -3,17 +3,17 @@
 Every metric is deterministic and dependency-free (stdlib only) so the
 harness can run anywhere, including CI, against collected ground truth.
 
-Metrics follow the READ benchmark family (ACL 2025) in spirit but stay
-pragmatic about what ground truth is available without manual annotation:
+These are lightweight regression proxies based on what reference text is
+available without manual annotation, not an implementation of a named benchmark:
 
 - content F1:      word-level precision/recall/F1 of extracted text vs the
                    PDF's native text layer (born-digital documents only)
-- reading order:   SequenceMatcher ratio between the concatenated extracted
-                   text and the text-layer stream
+- reading order:   SequenceMatcher ratio between extracted and reference word
+                   streams, with autojunk disabled
 - heading grounding: share of distinct headings absent from the normalized
                      source text (not a heading-detection accuracy score)
 - table health:    share of tables whose data rows match the header width
-- figure health:   detected vs annotated figure counts + broken link check
+- figure helper:   broken asset link detection (not figure detection accuracy)
 
 Ground truth comes from the PDFs' embedded text layer, so scoring scans
 (e.g. photographed pages) is out of scope for now.
