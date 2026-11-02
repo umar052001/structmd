@@ -13,6 +13,7 @@ labels, which only exist as pixels once rendered.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any, List, Optional
@@ -49,11 +50,11 @@ class AssetExtractor:
         ``metadata["asset_dpi"]``. Only PDF sources are supported; anything
         else is skipped with a debug log so callers can stay unconditional.
 
-        Crops are named after their element id (not their position in the
-        page): re-runs that serve pages from cache produce identical
+        Crops are named after their element id and effective PDF rectangle
+        (not their position in the page): re-runs from cache produce identical
         filenames, so links embedded elsewhere (e.g. graph imports of
         ``asset_path``) stay valid. When a ``cache`` is supplied, rendered
-        crops are cached per (document, page, element, dpi) and re-served
+        crops are cached per (document, page, element, rectangle, dpi) and re-served
         without re-rendering on warmed runs.
         """
         src = Path(source_path)
@@ -85,13 +86,10 @@ class AssetExtractor:
                     if rect is None:
                         logger.debug("Skipping degenerate image bbox on page %s", page.page_number)
                         continue
-                    filename = (
-                        f"{src.stem}_p{page.page_number:02d}_{self._safe_fragment(element)}.png"
-                    )
+                    crop_id = self._safe_fragment(element, rect)
+                    filename = f"{src.stem}_p{page.page_number:02d}_{crop_id}.png"
                     if cache is not None and doc_key is not None:
-                        cached = cache.load_asset(
-                            doc_key, page.page_number, element.id or "x", self.dpi
-                        )
+                        cached = cache.load_asset(doc_key, page.page_number, crop_id, self.dpi)
                         if cached is not None:
                             (assets_root / filename).write_bytes(cached)
                             self._annotate(element, dirname, filename, self.dpi)
@@ -107,9 +105,7 @@ class AssetExtractor:
                     data = pixmap.tobytes("png")
                     (assets_root / filename).write_bytes(data)
                     if cache is not None and doc_key is not None:
-                        cache.save_asset(
-                            doc_key, page.page_number, element.id or "x", self.dpi, data
-                        )
+                        cache.save_asset(doc_key, page.page_number, crop_id, self.dpi, data)
                     self._annotate(element, dirname, filename, self.dpi)
                     written.append(f"{dirname}/{filename}")
 
@@ -122,10 +118,11 @@ class AssetExtractor:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _safe_fragment(element: Any) -> str:
-        """Element id (or fallback) cleaned up for use in a filename."""
-        raw = element.id or "elem"
-        return "".join(c if c.isalnum() or c in "-_" else "_" for c in raw)
+    def _safe_fragment(element: Any, rect: Any) -> str:
+        """Bounded identity preserving distinct IDs and distinct crop geometry."""
+        id_digest = hashlib.sha256((element.id or "").encode("utf-8")).hexdigest()[:32]
+        rect_digest = hashlib.sha256(repr(tuple(rect)).encode("ascii")).hexdigest()[:32]
+        return f"{id_digest}_{rect_digest}"
 
     @staticmethod
     def _annotate(element: Any, dirname: str, filename: str, dpi: int) -> None:
