@@ -18,7 +18,7 @@ from structmd.converters.base import detect_converter
 from structmd.converters.image import ImageConverter
 from structmd.converters.office import OfficeConverter
 from structmd.converters.pdf import PDFConverter
-from structmd.core import ExtractedDocument, ExtractedPage, MarkdownDocument
+from structmd.core import ConversionError, ExtractedDocument, ExtractedPage, MarkdownDocument
 from structmd.extractors.ollama import OllamaExtractor
 
 logger = logging.getLogger(__name__)
@@ -148,14 +148,29 @@ class StructMDPipeline:
         bypass cache reads (fresh writes are still recorded).
         """
         converter = detect_converter(input_path, self.converters)
-        pairs = converter.convert(input_path, pages=pages)
-        if not pairs:
-            raise ValueError(f"No pages rendered from {input_path!r}")
-
         use_cache = self.config.cache_enabled and not force
         by_number: Dict[int, ExtractedPage] = {}
+        render_pages = pages
+        if use_cache and isinstance(converter, PDFConverter):
+            total = converter.get_page_count(input_path)
+            numbers = sorted(set(pages)) if pages is not None else list(range(1, total + 1))
+            invalid = [n for n in numbers if n < 1 or n > total]
+            if invalid:
+                raise ConversionError(
+                    f"Page(s) {invalid} out of range for {input_path!r} ({total} pages)"
+                )
+            for number in numbers:
+                cached = self.cache.load_page(input_path, number)
+                if cached is not None:
+                    by_number[number] = cached
+            render_pages = [n for n in numbers if n not in by_number]
+
+        pairs = converter.convert(input_path, pages=render_pages) if render_pages != [] else []
+        if not pairs and not by_number:
+            raise ValueError(f"No pages rendered from {input_path!r}")
+
         misses: List[Tuple[int, Image.Image]] = []
-        if use_cache:
+        if use_cache and not isinstance(converter, PDFConverter):
             for number, image in pairs:
                 cached = self.cache.load_page(input_path, number)
                 if cached is not None:

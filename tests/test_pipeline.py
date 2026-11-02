@@ -141,6 +141,46 @@ class TestProcess:
 
 
 class TestExtractOnlyAndBuildFromJson:
+    def test_pdf_warm_cache_never_renders_pages(self, pipeline, tmp_path, monkeypatch):
+        from structmd.converters.pdf import PDFConverter, fitz_module
+
+        source = tmp_path / "paper.pdf"
+        with fitz_module.open() as pdf:
+            pdf.new_page()
+            pdf.new_page()
+            pdf.save(source)
+        converter = PDFConverter()
+        pipeline.converters = [converter]
+        pipeline.cache.save_page(str(source), ExtractedPage(page_number=1))
+        original_convert = converter.convert
+        rendered = []
+
+        def record_render(path, pages=None):
+            rendered.extend(pages if pages is not None else [1, 2])
+            return original_convert(path, pages)
+
+        monkeypatch.setattr(converter, "convert", record_render)
+        assert pipeline.extract_only(str(source)).page_count == 2
+        assert rendered == [2]
+        rendered.clear()
+        assert pipeline.extract_only(str(source)).page_count == 2
+        assert rendered == []
+        assert pipeline.extractor.page_calls == [2]
+        pipeline.extract_only(str(source), force=True)
+        assert pipeline.extractor.page_calls == [2, 1, 2]
+
+    def test_pdf_cached_selection_still_validates_pages(self, pipeline, tmp_path):
+        from structmd.converters.pdf import PDFConverter, fitz_module
+        from structmd.core import ConversionError
+
+        source = tmp_path / "paper.pdf"
+        with fitz_module.open() as pdf:
+            pdf.new_page()
+            pdf.save(source)
+        pipeline.converters = [PDFConverter()]
+        with pytest.raises(ConversionError, match="out of range"):
+            pipeline.extract_only(str(source), pages=[0])
+
     def test_extract_only(
         self, pipeline: StructMDPipeline, stub_file: Path, tmp_path: Path
     ) -> None:
