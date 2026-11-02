@@ -36,17 +36,31 @@ def test_reading_order_similarity_penalizes_reordering() -> None:
     assert metrics.reading_order_similarity(ordered, ish) < 1.0
 
 
-def test_heading_hallucination_flags_invented_heads() -> None:
+def test_heading_text_absence_flags_missing_text() -> None:
     truth = "Introduction\nDeep Residual Networks\nConclusion\nsome body text"
     headings = ["Introduction", "Deep Residual Networks", "Made Up Section"]
-    rate = metrics.heading_hallucination_rate(headings, truth)
+    rate = metrics.heading_text_absence_rate(headings, truth)
     assert rate > 0.33 and rate < 0.34
 
 
-def test_heading_hallucination_ignores_case_and_whitespace() -> None:
+def test_heading_text_absence_ignores_case_and_whitespace() -> None:
     truth = "3.1 Identity Mappings in Deep Residual Networks"
     headings = ["  3.1 identity mappings in deep residual networks "]
-    assert metrics.heading_hallucination_rate(headings, truth) == 0.0
+    assert metrics.heading_text_absence_rate(headings, truth) == 0.0
+
+
+def test_heading_grounding_handles_wrapped_lines_and_word_boundaries() -> None:
+    truth = "3.1 Identity Mappings in\nDeep Residual Networks\nIntroduction"
+    assert (
+        metrics.heading_text_absence_rate(["Identity Mappings in Deep Residual Networks"], truth)
+        == 0.0
+    )
+    assert metrics.heading_text_absence_rate(["Intro"], truth) == 1.0
+
+
+def test_reading_order_does_not_discard_repeated_words() -> None:
+    text = "alpha beta gamma " * 100
+    assert metrics.reading_order_similarity(text, "extra " + text) > 0.99
 
 
 def test_table_width_consistency() -> None:
